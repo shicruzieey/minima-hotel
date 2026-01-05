@@ -1,0 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Roboto:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Japanese Minimalism Color System */
+    --black: 0 0% 7%;
+    --gray-900: 0 0% 11%;
+    --gray-700: 0 0% 29%;
+    --gray-500: 0 0% 54%;
+    --gray-300: 0 0% 82%;
+    --gray-100: 0 0% 95%;
+    --whitesmoke: 0 0% 97%;
+    --white: 0 0% 100%;
+    
+    /* Accent - Tatami Sand */
+    --accent-sand: 36 18% 88%;
+
+    /* Semantic Tokens */
+    --background: var(--whitesmoke);
+    --foreground: var(--black);
+
+    --card: var(--white);
+    --card-foreground: var(--black);
+
+    --popover: var(--white);
+    --popover-foreground: var(--black);
+
+    --primary: var(--black);
+    --primary-foreground: var(--white);
+
+    --secondary: var(--gray-100);
+    --secondary-foreground: var(--black);
+
+    --muted: var(--gray-100);
+    --muted-foreground: var(--gray-500);
+
+    --accent: var(--accent-sand);
+    --accent-foreground: var(--black);
+
+    --destructive: 0 60% 50%;
+    --destructive-foreground: var(--white);
+
+    --success: 142 40% 45%;
+    --success-foreground: var(--white);
+
+    --warning: 38 60% 55%;
+    --warning-foreground: var(--black);
+
+    --border: var(--gray-300);
+    --input: var(--gray-300);
+    --ring: var(--black);
+
+    --radius: 6px;
+
+    /* Sidebar - Clean Dark */
+    --sidebar-background: var(--gray-900);
+    --sidebar-foreground: var(--gray-100);
+    --sidebar-primary: var(--white);
+    --sidebar-primary-foreground: var(--black);
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: var(--white);
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: var(--white);
+
+    /* Typography */
+    --font-heading: 'Poppins', system-ui, sans-serif;
+    --font-body: 'Roboto', system-ui, sans-serif;
+  }
+
+  .dark {
+    --background: var(--gray-900);
+    --foreground: var(--gray-100);
+
+    --card: 0 0% 11%;
+    --card-foreground: var(--gray-100);
+
+    --popover: 0 0% 11%;
+    --popover-foreground: var(--gray-100);
+
+    --primary: var(--white);
+    --primary-foreground: var(--black);
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: var(--gray-100);
+
+    --muted: 0 0% 15%;
+    --muted-foreground: var(--gray-500);
+
+    --accent: var(--accent-sand);
+    --accent-foreground: var(--black);
+
+    --destructive: 0 50% 40%;
+    --destructive-foreground: var(--gray-100);
+
+    --success: 142 40% 40%;
+    --success-foreground: var(--gray-100);
+
+    --warning: 38 50% 50%;
+    --warning-foreground: var(--black);
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: var(--white);
+
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: var(--gray-100);
+    --sidebar-primary: var(--white);
+    --sidebar-primary-foreground: var(--black);
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: var(--white);
+    --sidebar-border: 0 0% 12%;
+    --sidebar-ring: var(--white);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-body);
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 500;
+  }
+
+  /* Links - Clean */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+@layer components {
+  /* Stat Card - Minimal */
+  .stat-card {
+    @apply bg-card border border-border rounded-md p-6 transition-all duration-200;
+  }
+
+  .stat-card:hover {
+    @apply border-gray-400;
+  }
+
+  /* Navigation Items - Subtle */
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-sm text-sidebar-foreground/70 transition-all duration-200;
+  }
+
+  .nav-item:hover {
+    @apply bg-sidebar-accent text-sidebar-foreground;
+  }
+
+  .nav-item-active {
+    @apply bg-sidebar-accent text-sidebar-foreground;
+  }
+}
+
+@layer utilities {
+  /* Remove glass-card - too flashy for minimal design */
+  .glass-card {
+    @apply bg-card border border-border;
+  }
+}
