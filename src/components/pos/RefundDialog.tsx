@@ -7,12 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Search, RotateCcw, AlertCircle, Check } from "lucide-react";
 import { usePOSTransactions } from "@/hooks/usePOS";
 import { validateRefundReason, validateRefundAmount, validateTransactionNumber } from "@/utils/validations";
-import { Database } from "@/integrations/supabase/types";
+import type { POSTransaction, POSTransactionItem, POSProduct } from "@/integrations/firebase/types";
 import { toast } from "sonner";
-
-type POSTransaction = Database["public"]["Tables"]["pos_transactions"]["Row"];
-type POSTransactionItem = Database["public"]["Tables"]["pos_transaction_items"]["Row"];
-type POSProduct = Database["public"]["Tables"]["pos_products"]["Row"];
 
 interface TransactionWithItems extends POSTransaction {
   items: (POSTransactionItem & { product: POSProduct })[];

@@ -1,13 +1,8 @@
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Printer, Download, Share2 } from "lucide-react";
+import { Printer, Download } from "lucide-react";
 import { CartItem } from "@/hooks/usePOS";
-import { Database } from "@/integrations/supabase/types";
-
-type Guest = Database["public"]["Tables"]["guests"]["Row"];
-type Room = Database["public"]["Tables"]["rooms"]["Row"];
-type Booking = Database["public"]["Tables"]["bookings"]["Row"];
 
 interface ReceiptProps {
   open: boolean;
@@ -18,9 +13,7 @@ interface ReceiptProps {
   total: number;
   paymentMethod: string;
   transactionNumber: string;
-  guest?: Guest;
-  room?: Room;
-  booking?: Booking;
+  guestName?: string;
 }
 
 export const ReceiptDialog = ({
@@ -32,9 +25,7 @@ export const ReceiptDialog = ({
   total,
   paymentMethod,
   transactionNumber,
-  guest,
-  room,
-  booking,
+  guestName,
 }: ReceiptProps) => {
   const receiptRef = useRef<HTMLDivElement>(null);
 
@@ -109,16 +100,10 @@ export const ReceiptDialog = ({
                 <span>Payment:</span>
                 <span>{paymentMethod}</span>
               </div>
-              {guest && (
+              {guestName && (
                 <div className="line">
                   <span>Guest:</span>
-                  <span>{guest.first_name} {guest.last_name}</span>
-                </div>
-              )}
-              {room && (
-                <div className="line">
-                  <span>Room:</span>
-                  <span>{room.room_number}</span>
+                  <span>{guestName}</span>
                 </div>
               )}
             </div>

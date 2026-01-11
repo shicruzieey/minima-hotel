@@ -19,26 +19,26 @@ import {
   Package,
   Percent,
   Receipt,
-  RotateCcw,
   User,
-  AlertCircle
+  AlertCircle,
+  Sun,
+  Sunset,
+  Cookie,
+  Moon,
+  Edit,
+  PlusCircle
 } from "lucide-react";
 import { toast } from "sonner";
-import { usePOSCategories, usePOSProducts, useCreateTransaction, CartItem, ProductWithCategory } from "@/hooks/usePOS";
+import { usePOSCategories, usePOSProducts, useCreateTransaction, useCreateProduct, useUpdateProduct, CartItem, ProductWithCategory, GuestFromBooking } from "@/hooks/usePOS";
 import { GuestSelectionDialog } from "@/components/pos/GuestSelectionDialog";
 import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
 import { DiscountDialog } from "@/components/pos/DiscountDialog";
-import { RefundDialog } from "@/components/pos/RefundDialog";
-import { validateCartQuantity, validateCartTotal, validatePaymentMethod, validateRoomCharge, validateProductAvailability, validateSearchQuery, validateGuestAssignment } from "@/utils/validations";
-import { Database } from "@/integrations/supabase/types";
+import { ProductDialog, ProductFormData } from "@/components/pos/ProductDialog";
+import { validateCartQuantity, validateCartTotal, validatePaymentMethod, validateProductAvailability, validateSearchQuery } from "@/utils/validations";
 
-type Guest = Database["public"]["Tables"]["guests"]["Row"];
-type Room = Database["public"]["Tables"]["rooms"]["Row"];
-type Booking = Database["public"]["Tables"]["bookings"]["Row"];
-
-interface BookingWithDetails extends Booking {
-  guest?: Guest;
-  room?: Room;
+interface SelectedGuest {
+  guestId: string;
+  guestName: string;
 }
 
 interface Discount {
@@ -68,28 +68,54 @@ const getCategoryIcon = (categoryName: string) => {
   return categoryIcons.default;
 };
 
+type FoodType = "all" | "breakfast" | "lunch" | "snack" | "dinner";
+
+const foodTypeOptions: { value: FoodType; label: string; icon: React.ElementType }[] = [
+  { value: "all", label: "All", icon: Package },
+  { value: "breakfast", label: "Breakfast", icon: Sun },
+  { value: "lunch", label: "Lunch", icon: Sunset },
+  { value: "snack", label: "Snack", icon: Cookie },
+  { value: "dinner", label: "Dinner", icon: Moon },
+];
+
 const POS = () => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeFoodType, setActiveFoodType] = useState<FoodType>("all");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isGuestDialogOpen, setIsGuestDialogOpen] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [isDiscountDialogOpen, setIsDiscountDialogOpen] = useState(false);
-  const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
+  const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ProductWithCategory | null>(null);
   const [appliedDiscount, setAppliedDiscount] = useState<Discount | null>(null);
   const [lastTransactionNumber, setLastTransactionNumber] = useState<string>("");
   const [lastTransactionDetails, setLastTransactionDetails] = useState<any>(null);
-  const [selectedGuest, setSelectedGuest] = useState<BookingWithDetails | null>(null);
+  const [selectedGuest, setSelectedGuest] = useState<SelectedGuest | null>(null);
 
   const { data: categories, isLoading: categoriesLoading } = usePOSCategories();
   const { data: products, isLoading: productsLoading } = usePOSProducts();
   const createTransaction = useCreateTransaction();
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
 
   // Set default category when data loads
   useMemo(() => {
     if (categories?.length && !activeCategory) {
       setActiveCategory(categories[0].id);
     }
+  }, [categories, activeCategory]);
+
+  // Check if current category is Foods
+  const isFoodsCategory = useMemo(() => {
+    const currentCategory = categories?.find(c => c.id === activeCategory);
+    return currentCategory?.name.toLowerCase() === "foods";
+  }, [categories, activeCategory]);
+
+  // Check if current category is Services
+  const isServicesCategory = useMemo(() => {
+    const currentCategory = categories?.find(c => c.id === activeCategory);
+    return currentCategory?.name.toLowerCase() === "services";
   }, [categories, activeCategory]);
 
   const filteredProducts = useMemo(() => {
@@ -103,9 +129,10 @@ const POS = () => {
     return products?.filter(
       (p) =>
         (!activeCategory || p.category_id === activeCategory) &&
+        (!isFoodsCategory || activeFoodType === "all" || p.foodType === activeFoodType) &&
         p.name.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
-  }, [products, activeCategory, searchQuery]);
+  }, [products, activeCategory, activeFoodType, searchQuery, isFoodsCategory]);
 
   const addToCart = (product: ProductWithCategory) => {
     // Validate product availability
@@ -186,7 +213,7 @@ const POS = () => {
     toast.info("Discount removed");
   };
 
-  const handleCheckout = async (method: string, booking?: BookingWithDetails) => {
+  const handleCheckout = async (method: string) => {
     // Validate cart is not empty
     if (cart.length === 0) {
       toast.error("Cart is empty");
@@ -207,27 +234,11 @@ const POS = () => {
       return;
     }
 
-    // NEW VALIDATION: Require customer/room assignment for all payments
-    if (!booking || !booking.guest || !booking.room) {
-      toast.error("Payment must be assigned to a customer and room. Please select a guest first.");
+    // Require guest selection
+    if (!selectedGuest) {
+      toast.error("Please select a guest first.");
       setIsGuestDialogOpen(true);
       return;
-    }
-
-    // Use the new guest assignment validation
-    const guestValidation = validateGuestAssignment(booking.guest, booking.room);
-    if (!guestValidation.isValid) {
-      toast.error(guestValidation.message || "Invalid guest assignment");
-      return;
-    }
-
-    // Validate room charge if applicable
-    if (method.toLowerCase() === "room charge") {
-      const roomChargeValidation = validateRoomCharge(booking?.guest?.id, booking?.id);
-      if (!roomChargeValidation.isValid) {
-        toast.error(roomChargeValidation.message || "Guest information required for room charge");
-        return;
-      }
     }
 
     try {
@@ -240,8 +251,8 @@ const POS = () => {
           total,
           payment_method: method.toLowerCase(),
           status: "completed",
-          guest_id: booking?.guest?.id || null,
-          booking_id: booking?.id || null,
+          guest_id: selectedGuest.guestId,
+          guest_name: selectedGuest.guestName,
         },
         items: cart.map((item) => ({
           product_id: item.id,
@@ -257,35 +268,22 @@ const POS = () => {
         tax,
         total,
         paymentMethod: method,
-        guest: booking?.guest,
-        room: booking?.room,
-        booking,
+        guestName: selectedGuest.guestName,
       });
 
-      const guestInfo = booking 
-        ? ` for ${booking.guest?.first_name} ${booking.guest?.last_name} (Room ${booking.room?.room_number})`
-        : "";
-
-      toast.success(`Payment of ₱${total.toFixed(2)} processed via ${method}${guestInfo}`);
+      toast.success(`Payment of ₱${total.toFixed(2)} processed via ${method} for ${selectedGuest.guestName}`);
       setCart([]);
       setAppliedDiscount(null);
+      setSelectedGuest(null);
       setIsReceiptDialogOpen(true);
     } catch (error) {
       toast.error("Failed to process transaction. Please try again.");
     }
   };
 
-  const handleRoomCharge = () => {
-    if (cart.length === 0) {
-      toast.error("Cart is empty");
-      return;
-    }
-    setIsGuestDialogOpen(true);
-  };
-
-  const handleGuestSelect = (booking: BookingWithDetails) => {
-    setSelectedGuest(booking);
-    toast.success(`Guest selected: ${booking.guest?.first_name} ${booking.guest?.last_name} (Room ${booking.room?.room_number})`);
+  const handleGuestSelect = (guest: GuestFromBooking) => {
+    setSelectedGuest({ guestId: guest.guestId, guestName: guest.guestName });
+    toast.success(`Guest selected: ${guest.guestName}`);
   };
 
   const handlePaymentWithGuest = (method: string) => {
@@ -293,7 +291,45 @@ const POS = () => {
       setIsGuestDialogOpen(true);
       return;
     }
-    handleCheckout(method, selectedGuest);
+    handleCheckout(method);
+  };
+
+  const handleAddProduct = () => {
+    setEditingProduct(null);
+    setIsProductDialogOpen(true);
+  };
+
+  const handleEditProduct = (product: ProductWithCategory, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingProduct(product);
+    setIsProductDialogOpen(true);
+  };
+
+  const handleSaveProduct = async (data: ProductFormData) => {
+    try {
+      if (data.id) {
+        await updateProduct.mutateAsync({
+          id: data.id,
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          category_id: data.category_id,
+          is_available: data.is_available,
+        });
+        toast.success("Service updated successfully");
+      } else {
+        await createProduct.mutateAsync({
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          category_id: data.category_id,
+          is_available: data.is_available,
+        });
+        toast.success("Service added successfully");
+      }
+    } catch (error) {
+      toast.error("Failed to save service");
+    }
   };
 
   const isLoading = categoriesLoading || productsLoading;
@@ -302,16 +338,6 @@ const POS = () => {
     <MainLayout 
       title="Point of Sale" 
       subtitle="Process guest transactions"
-      actionButton={
-        <Button
-          variant="outline"
-          onClick={() => setIsRefundDialogOpen(true)}
-          className="flex items-center gap-2"
-        >
-          <RotateCcw className="w-4 h-4" />
-          Process Refund
-        </Button>
-      }
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Products Section */}
@@ -343,15 +369,44 @@ const POS = () => {
             )}
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <Input
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+          {/* Food Type Filter - Only show for Foods category */}
+          {isFoodsCategory && (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {foodTypeOptions.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <Button
+                    key={option.value}
+                    variant={activeFoodType === option.value ? "default" : "outline"}
+                    size="sm"
+                    className="flex items-center gap-2 whitespace-nowrap"
+                    onClick={() => setActiveFoodType(option.value)}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Search and Add Button */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Input
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            {isServicesCategory && (
+              <Button onClick={handleAddProduct} className="flex items-center gap-2">
+                <PlusCircle className="w-4 h-4" />
+                Add Service
+              </Button>
+            )}
           </div>
 
           {/* Products Grid */}
@@ -370,9 +425,19 @@ const POS = () => {
               filteredProducts.map((product) => (
                 <Card
                   key={product.id}
-                  className="cursor-pointer hover:border-gray-400 transition-colors duration-200"
+                  className="cursor-pointer hover:border-gray-400 transition-colors duration-200 relative group"
                   onClick={() => addToCart(product)}
                 >
+                  {isServicesCategory && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white"
+                      onClick={(e) => handleEditProduct(product, e)}
+                    >
+                      <Edit className="w-3 h-3" />
+                    </Button>
+                  )}
                   <CardContent className="p-4">
                     <div className="aspect-square bg-gray-100 rounded-sm mb-3 flex items-center justify-center">
                       <ShoppingCart className="w-6 h-6 text-gray-300" />
@@ -499,10 +564,7 @@ const POS = () => {
                       </div>
                       <div className="text-sm">
                         <p className="font-medium text-blue-800">
-                          {selectedGuest.guest?.first_name} {selectedGuest.guest?.last_name}
-                        </p>
-                        <p className="text-xs text-blue-600">
-                          Room {selectedGuest.room?.room_number}
+                          {selectedGuest.guestName}
                         </p>
                       </div>
                     </div>
@@ -572,7 +634,11 @@ const POS = () => {
                 onClick={() => handlePaymentWithGuest("Card")}
                 disabled={createTransaction.isPending || cart.length === 0}
               >
-                <CreditCard className="w-4 h-4 mr-2" />
+                {createTransaction.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <CreditCard className="w-4 h-4 mr-2" />
+                )}
                 Card
               </Button>
               <Button
@@ -584,17 +650,6 @@ const POS = () => {
                 Cash
               </Button>
             </div>
-            <Button
-              variant="outline"
-              className="w-full mt-2"
-              onClick={() => handlePaymentWithGuest("Room Charge")}
-              disabled={createTransaction.isPending || cart.length === 0}
-            >
-              {createTransaction.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
-              Charge to Room
-            </Button>
 
             {/* Clear Cart */}
             {cart.length > 0 && (
@@ -638,9 +693,7 @@ const POS = () => {
         total={lastTransactionDetails?.total || 0}
         paymentMethod={lastTransactionDetails?.paymentMethod || ""}
         transactionNumber={lastTransactionNumber}
-        guest={lastTransactionDetails?.guest}
-        room={lastTransactionDetails?.room}
-        booking={lastTransactionDetails?.booking}
+        guestName={lastTransactionDetails?.guestName}
       />
 
       <DiscountDialog
@@ -650,9 +703,12 @@ const POS = () => {
         onApplyDiscount={handleApplyDiscount}
       />
 
-      <RefundDialog
-        open={isRefundDialogOpen}
-        onOpenChange={setIsRefundDialogOpen}
+      <ProductDialog
+        open={isProductDialogOpen}
+        onOpenChange={setIsProductDialogOpen}
+        product={editingProduct}
+        onSave={handleSaveProduct}
+        isLoading={createProduct.isPending || updateProduct.isPending}
       />
     </MainLayout>
   );

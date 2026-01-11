@@ -14,31 +14,22 @@ import {
 } from "@/components/ui/table";
 import { 
   Search, 
-  Plus, 
   Package, 
   AlertTriangle,
   TrendingDown,
-  MoreHorizontal,
-  Filter
+  Loader2
 } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
-
-const inventoryItems = [
-  { id: 1, name: "Fresh Towels", category: "Housekeeping", stock: 450, minStock: 100, unit: "pcs", lastUpdated: "2 hours ago" },
-  { id: 2, name: "Shampoo Bottles", category: "Amenities", stock: 280, minStock: 200, unit: "bottles", lastUpdated: "1 day ago" },
-  { id: 3, name: "Coffee Beans", category: "F&B", stock: 45, minStock: 50, unit: "kg", lastUpdated: "3 hours ago" },
-  { id: 4, name: "Bed Linens", category: "Housekeeping", stock: 180, minStock: 50, unit: "sets", lastUpdated: "1 week ago" },
-  { id: 5, name: "Mini Bar Snacks", category: "F&B", stock: 320, minStock: 100, unit: "pcs", lastUpdated: "5 hours ago" },
-  { id: 6, name: "Body Lotion", category: "Amenities", stock: 25, minStock: 100, unit: "bottles", lastUpdated: "2 days ago" },
-  { id: 7, name: "Wine Bottles", category: "F&B", stock: 85, minStock: 30, unit: "bottles", lastUpdated: "1 day ago" },
-  { id: 8, name: "Slippers", category: "Amenities", stock: 350, minStock: 200, unit: "pairs", lastUpdated: "4 hours ago" },
-];
-
-const categories = ["All", "Housekeeping", "Amenities", "F&B"];
+import { useInventory, useInventoryStats } from "@/hooks/useInventory";
 
 const Inventory = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  
+  const { data: inventoryItems = [], isLoading } = useInventory();
+  const { totalItems, lowStockCount, categories } = useInventoryStats();
+
+  const allCategories = ["All", ...categories];
 
   const filteredItems = inventoryItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -46,45 +37,48 @@ const Inventory = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const lowStockCount = inventoryItems.filter(item => item.stock < item.minStock).length;
-  const totalItems = inventoryItems.length;
-  const totalValue = inventoryItems.reduce((sum, item) => sum + item.stock, 0);
-
-  const getStockStatus = (stock: number, minStock: number) => {
-    if (stock < minStock) return "critical";
-    if (stock < minStock * 1.5) return "low";
+  const getStockStatus = (currentStock: number, restockThreshold: number) => {
+    if (currentStock < restockThreshold) return "critical";
+    if (currentStock < restockThreshold * 1.5) return "low";
     return "normal";
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffHours < 1) return "Just now";
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
   };
 
   return (
     <MainLayout title="Inventory Management" subtitle="Track and manage hotel supplies">
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard
           title="Total Items"
-          value={totalItems}
-          change="8 categories"
+          value={isLoading ? "..." : totalItems}
+          change={`${categories.length} categories`}
           icon={Package}
-        />
-        <StatCard
-          title="Total Stock Units"
-          value={totalValue.toLocaleString()}
-          change="Across all items"
-          icon={Package}
-          iconColor="bg-primary/10 text-primary"
         />
         <StatCard
           title="Low Stock Alerts"
-          value={lowStockCount}
+          value={isLoading ? "..." : lowStockCount}
           change="Needs attention"
-          changeType="negative"
+          changeType={lowStockCount > 0 ? "negative" : "positive"}
           icon={AlertTriangle}
           iconColor="bg-destructive/10 text-destructive"
         />
         <StatCard
           title="Reorder Pending"
-          value="3"
-          change="Awaiting delivery"
+          value={lowStockCount}
+          change="Below threshold"
           icon={TrendingDown}
           iconColor="bg-warning/10 text-warning"
         />
@@ -95,7 +89,7 @@ const Inventory = () => {
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-              {categories.map((cat) => (
+              {allCategories.map((cat) => (
                 <Button
                   key={cat}
                   variant={activeCategory === cat ? "default" : "secondary"}
@@ -117,10 +111,7 @@ const Inventory = () => {
                   className="pl-10"
                 />
               </div>
-              <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Item
-              </Button>
+
             </div>
           </div>
         </CardContent>
@@ -132,58 +123,75 @@ const Inventory = () => {
           <CardTitle className="font-heading text-lg">Inventory Items</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Current Stock</TableHead>
-                <TableHead>Min. Stock</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredItems.map((item) => {
-                const status = getStockStatus(item.stock, item.minStock);
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{item.category}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {item.stock} {item.unit}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {item.minStock} {item.unit}
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="secondary"
-                        className={
-                          status === "critical" ? "bg-destructive/10 text-destructive border-destructive/20" :
-                          status === "low" ? "bg-warning/10 text-warning border-warning/20" :
-                          "bg-success/10 text-success border-success/20"
-                        }
-                      >
-                        {status === "critical" ? "Critical" : status === "low" ? "Low" : "In Stock"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {item.lastUpdated}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              {searchQuery || activeCategory !== "All" 
+                ? "No items match your filters" 
+                : "No inventory items found"}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item Name</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Current Stock</TableHead>
+                  <TableHead>Min. Stock</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Last Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item) => {
+                  const status = getStockStatus(item.currentStock, item.restockThreshold);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">
+                        <div>
+                          <div>{item.name}</div>
+                          {item.description && (
+                            <div className="text-xs text-muted-foreground">{item.description}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{item.category}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {item.currentStock} {item.unit}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {item.restockThreshold} {item.unit}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="secondary"
+                          className={
+                            status === "critical" ? "bg-destructive/10 text-destructive border-destructive/20" :
+                            status === "low" ? "bg-warning/10 text-warning border-warning/20" :
+                            "bg-success/10 text-success border-success/20"
+                          }
+                        >
+                          {status === "critical" ? "Critical" : status === "low" ? "Low" : "In Stock"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {item.location || "N/A"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(item.updatedAt)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </MainLayout>
