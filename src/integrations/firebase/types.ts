@@ -1,7 +1,7 @@
 // Firebase Database Types
 
 export type BookingStatus = "pending" | "confirmed" | "checked_in" | "checked_out" | "cancelled" | "paid";
-export type TransactionStatus = "pending" | "completed" | "refunded" | "cancelled";
+export type TransactionStatus = "pending" | "completed" | "refunded" | "cancelled" | "voided";
 export type FoodType = "breakfast" | "lunch" | "snack" | "dinner";
 
 // Booking structure from your Firebase
@@ -108,7 +108,7 @@ export interface InventoryItem {
 export const Constants = {
   Enums: {
     booking_status: ["pending", "confirmed", "checked_in", "checked_out", "cancelled", "paid"] as const,
-    transaction_status: ["pending", "completed", "refunded", "cancelled"] as const,
+    transaction_status: ["pending", "completed", "refunded", "cancelled", "voided"] as const,
     food_type: ["breakfast", "lunch", "snack", "dinner"] as const,
   },
 } as const;

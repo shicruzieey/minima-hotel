@@ -509,3 +509,88 @@ export const useUpdateProduct = () => {
     },
   });
 };
+
+
+export const usePayTransaction = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      transactionId,
+      paymentMethod,
+    }: {
+      transactionId: string;
+      paymentMethod: "card" | "cash";
+    }) => {
+      const transactionRef = ref(db, `pos_transactions/${transactionId}`);
+      
+      await update(transactionRef, {
+        payment_method: paymentMethod,
+        status: "completed",
+        paid_at: new Date().toISOString(),
+      });
+
+      return { transactionId, paymentMethod };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pos-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["guest-transactions"] });
+    },
+  });
+};
+
+// Get active guests (checked in) for POS selection
+export const useActiveGuestsForPOS = () => {
+  return useQuery({
+    queryKey: ["active-guests-pos"],
+    queryFn: async () => {
+      const bookingsRef = ref(db, "bookings");
+      const snapshot = await get(bookingsRef);
+      if (!snapshot.exists()) return [];
+      
+      const data = snapshot.val();
+      const bookings: Booking[] = Object.entries(data).map(([id, value]) => ({
+        id,
+        ...(value as Omit<Booking, "id">),
+      }));
+      
+      // Filter for checked_in or confirmed guests only
+      const activeBookings = bookings.filter(b => 
+        b.status === "checked_in" || b.status === "confirmed"
+      );
+      
+      return activeBookings.map(booking => ({
+        id: booking.guestId,
+        guestId: booking.guestId,
+        guestName: booking.guestName,
+        guestEmail: booking.guestEmail,
+        guestPhone: booking.guestPhone,
+        roomId: booking.roomId,
+        roomType: booking.roomType,
+        bookingId: booking.id,
+      })).sort((a, b) => a.guestName.localeCompare(b.guestName)) as GuestFromBooking[];
+    },
+  });
+};
+
+
+export const useVoidTransaction = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (transactionId: string) => {
+      const transactionRef = ref(db, `pos_transactions/${transactionId}`);
+      
+      await update(transactionRef, {
+        status: "voided",
+        voided_at: new Date().toISOString(),
+      });
+
+      return { transactionId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pos-transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["guest-transactions"] });
+    },
+  });
+};

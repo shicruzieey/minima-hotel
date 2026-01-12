@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Coffee, 
   UtensilsCrossed, 
@@ -12,33 +14,47 @@ import {
   Plus,
   Minus,
   Trash2,
-  CreditCard,
-  Banknote,
   Search,
   Loader2,
   Package,
   Percent,
-  Receipt,
   User,
-  AlertCircle,
   Sun,
   Sunset,
   Cookie,
   Moon,
   Edit,
-  PlusCircle
+  PlusCircle,
+  Send,
+  BedDouble,
+  ChevronRight,
+  Shirt,
+  Car,
+  Dumbbell,
+  Wifi,
+  Bed,
+  Clock,
+  Baby,
+  PawPrint,
+  Printer,
+  Waves,
+  MapPin,
+  Plane,
+  SprayCan,
+  Utensils,
+  ConciergeBell
 } from "lucide-react";
 import { toast } from "sonner";
-import { usePOSCategories, usePOSProducts, useCreateTransaction, useCreateProduct, useUpdateProduct, CartItem, ProductWithCategory, GuestFromBooking } from "@/hooks/usePOS";
-import { GuestSelectionDialog } from "@/components/pos/GuestSelectionDialog";
-import { ReceiptDialog } from "@/components/pos/ReceiptDialog";
+import { usePOSCategories, usePOSProducts, useCreateTransaction, useCreateProduct, useUpdateProduct, useActiveGuestsForPOS, CartItem, ProductWithCategory, GuestFromBooking } from "@/hooks/usePOS";
 import { DiscountDialog } from "@/components/pos/DiscountDialog";
 import { ProductDialog, ProductFormData } from "@/components/pos/ProductDialog";
-import { validateCartQuantity, validateCartTotal, validatePaymentMethod, validateProductAvailability, validateSearchQuery } from "@/utils/validations";
+import { validateCartQuantity, validateCartTotal, validateProductAvailability, validateSearchQuery } from "@/utils/validations";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SelectedGuest {
   guestId: string;
   guestName: string;
+  roomId: string;
 }
 
 interface Discount {
@@ -69,6 +85,7 @@ const getCategoryIcon = (categoryName: string) => {
 };
 
 type FoodType = "all" | "breakfast" | "lunch" | "snack" | "dinner";
+type ServiceType = "all" | "laundry" | "spa" | "transport" | "room" | "other";
 
 const foodTypeOptions: { value: FoodType; label: string; icon: React.ElementType }[] = [
   { value: "all", label: "All", icon: Package },
@@ -78,23 +95,61 @@ const foodTypeOptions: { value: FoodType; label: string; icon: React.ElementType
   { value: "dinner", label: "Dinner", icon: Moon },
 ];
 
+const serviceTypeOptions: { value: ServiceType; label: string; icon: React.ElementType }[] = [
+  { value: "all", label: "All", icon: Package },
+  { value: "laundry", label: "Laundry", icon: Shirt },
+  { value: "spa", label: "Spa & Wellness", icon: Sparkles },
+  { value: "transport", label: "Transport", icon: Car },
+  { value: "room", label: "Room Services", icon: Bed },
+  { value: "other", label: "Other", icon: ConciergeBell },
+];
+
+// Get icon for product based on name
+const getProductIcon = (productName: string): React.ElementType => {
+  const name = productName.toLowerCase();
+  if (name.includes("laundry") || name.includes("dry clean") || name.includes("iron")) return Shirt;
+  if (name.includes("massage") || name.includes("spa") || name.includes("facial")) return Sparkles;
+  if (name.includes("airport") || name.includes("car") || name.includes("tour")) return Car;
+  if (name.includes("gym") || name.includes("fitness")) return Dumbbell;
+  if (name.includes("wifi") || name.includes("internet")) return Wifi;
+  if (name.includes("bed") || name.includes("checkout") || name.includes("checkin") || name.includes("upgrade")) return Bed;
+  if (name.includes("baby") || name.includes("child")) return Baby;
+  if (name.includes("pet")) return PawPrint;
+  if (name.includes("print")) return Printer;
+  if (name.includes("pool") || name.includes("towel")) return Waves;
+  if (name.includes("minibar") || name.includes("bar")) return Wine;
+  if (name.includes("coffee") || name.includes("cafe")) return Coffee;
+  if (name.includes("food") || name.includes("meal") || name.includes("breakfast") || name.includes("lunch") || name.includes("dinner")) return Utensils;
+  return ConciergeBell;
+};
+
+// Get service type for filtering
+const getServiceType = (productName: string): ServiceType => {
+  const name = productName.toLowerCase();
+  if (name.includes("laundry") || name.includes("dry clean") || name.includes("iron")) return "laundry";
+  if (name.includes("massage") || name.includes("spa") || name.includes("facial") || name.includes("gym") || name.includes("pool")) return "spa";
+  if (name.includes("airport") || name.includes("car") || name.includes("tour") || name.includes("transfer")) return "transport";
+  if (name.includes("bed") || name.includes("checkout") || name.includes("checkin") || name.includes("upgrade") || name.includes("minibar")) return "room";
+  return "other";
+};
+
 const POS = () => {
+  const navigate = useNavigate();
+  const { isManager } = useAuth();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeFoodType, setActiveFoodType] = useState<FoodType>("all");
+  const [activeServiceType, setActiveServiceType] = useState<ServiceType>("all");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isGuestDialogOpen, setIsGuestDialogOpen] = useState(false);
-  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [isDiscountDialogOpen, setIsDiscountDialogOpen] = useState(false);
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductWithCategory | null>(null);
   const [appliedDiscount, setAppliedDiscount] = useState<Discount | null>(null);
-  const [lastTransactionNumber, setLastTransactionNumber] = useState<string>("");
-  const [lastTransactionDetails, setLastTransactionDetails] = useState<any>(null);
   const [selectedGuest, setSelectedGuest] = useState<SelectedGuest | null>(null);
 
   const { data: categories, isLoading: categoriesLoading } = usePOSCategories();
   const { data: products, isLoading: productsLoading } = usePOSProducts();
+  const { data: activeGuests = [], isLoading: guestsLoading } = useActiveGuestsForPOS();
   const createTransaction = useCreateTransaction();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
@@ -119,23 +174,23 @@ const POS = () => {
   }, [categories, activeCategory]);
 
   const filteredProducts = useMemo(() => {
-    // Validate search query
     const searchValidation = validateSearchQuery(searchQuery);
     if (!searchValidation.isValid) {
-      toast.error(searchValidation.message || "Invalid search query");
       return products || [];
     }
     
     return products?.filter(
-      (p) =>
-        (!activeCategory || p.category_id === activeCategory) &&
-        (!isFoodsCategory || activeFoodType === "all" || p.foodType === activeFoodType) &&
-        p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      (p) => {
+        const matchesCategory = !activeCategory || p.category_id === activeCategory;
+        const matchesFoodType = !isFoodsCategory || activeFoodType === "all" || p.foodType === activeFoodType;
+        const matchesServiceType = !isServicesCategory || activeServiceType === "all" || getServiceType(p.name) === activeServiceType;
+        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCategory && matchesFoodType && matchesServiceType && matchesSearch;
+      }
     ) || [];
-  }, [products, activeCategory, activeFoodType, searchQuery, isFoodsCategory]);
+  }, [products, activeCategory, activeFoodType, activeServiceType, searchQuery, isFoodsCategory, isServicesCategory]);
 
   const addToCart = (product: ProductWithCategory) => {
-    // Validate product availability
     const availabilityValidation = validateProductAvailability(product.is_available);
     if (!availabilityValidation.isValid) {
       toast.error(availabilityValidation.message || "Product not available");
@@ -146,7 +201,6 @@ const POS = () => {
       const existing = prev.find((item) => item.id === product.id);
       const newQuantity = existing ? existing.quantity + 1 : 1;
       
-      // Validate quantity
       const quantityValidation = validateCartQuantity(newQuantity);
       if (!quantityValidation.isValid) {
         toast.error(quantityValidation.message || "Invalid quantity");
@@ -171,7 +225,6 @@ const POS = () => {
       
       const newQty = item.quantity + delta;
       
-      // Validate quantity
       const quantityValidation = validateCartQuantity(newQty);
       if (!quantityValidation.isValid && newQty > 0) {
         toast.error(quantityValidation.message || "Invalid quantity");
@@ -213,44 +266,41 @@ const POS = () => {
     toast.info("Discount removed");
   };
 
-  const handleCheckout = async (method: string) => {
-    // Validate cart is not empty
+  const handleGuestSelect = (guest: GuestFromBooking) => {
+    setSelectedGuest({ 
+      guestId: guest.guestId, 
+      guestName: guest.guestName,
+      roomId: guest.roomId 
+    });
+    toast.success(`Selected: ${guest.guestName} (Room ${guest.roomId})`);
+  };
+
+  // Add to guest's tab (pending transaction)
+  const handleAddToTab = async () => {
     if (cart.length === 0) {
       toast.error("Cart is empty");
       return;
     }
 
-    // Validate cart total
     const totalValidation = validateCartTotal(total);
     if (!totalValidation.isValid) {
       toast.error(totalValidation.message || "Invalid cart total");
       return;
     }
 
-    // Validate payment method
-    const paymentValidation = validatePaymentMethod(method);
-    if (!paymentValidation.isValid) {
-      toast.error(paymentValidation.message || "Invalid payment method");
-      return;
-    }
-
-    // Require guest selection
     if (!selectedGuest) {
-      toast.error("Please select a guest first.");
-      setIsGuestDialogOpen(true);
+      toast.error("Please select a guest first");
       return;
     }
 
     try {
-      const transactionNumber = `TX${new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14)}${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
-      
       await createTransaction.mutateAsync({
         transaction: {
           subtotal: discountedSubtotal,
           tax,
           total,
-          payment_method: method.toLowerCase(),
-          status: "completed",
+          payment_method: "pending",
+          status: "pending",
           guest_id: selectedGuest.guestId,
           guest_name: selectedGuest.guestName,
         },
@@ -261,37 +311,12 @@ const POS = () => {
         })),
       });
 
-      setLastTransactionNumber(transactionNumber);
-      setLastTransactionDetails({
-        items: cart,
-        subtotal: discountedSubtotal,
-        tax,
-        total,
-        paymentMethod: method,
-        guestName: selectedGuest.guestName,
-      });
-
-      toast.success(`Payment of ₱${total.toFixed(2)} processed via ${method} for ${selectedGuest.guestName}`);
+      toast.success(`₱${total.toFixed(2)} added to ${selectedGuest.guestName}'s tab`);
       setCart([]);
       setAppliedDiscount(null);
-      setSelectedGuest(null);
-      setIsReceiptDialogOpen(true);
     } catch (error) {
-      toast.error("Failed to process transaction. Please try again.");
+      toast.error("Failed to add to tab. Please try again.");
     }
-  };
-
-  const handleGuestSelect = (guest: GuestFromBooking) => {
-    setSelectedGuest({ guestId: guest.guestId, guestName: guest.guestName });
-    toast.success(`Guest selected: ${guest.guestName}`);
-  };
-
-  const handlePaymentWithGuest = (method: string) => {
-    if (!selectedGuest) {
-      setIsGuestDialogOpen(true);
-      return;
-    }
-    handleCheckout(method);
   };
 
   const handleAddProduct = () => {
@@ -337,8 +362,59 @@ const POS = () => {
   return (
     <MainLayout 
       title="Point of Sale" 
-      subtitle="Process guest transactions"
+      subtitle="Add items to guest tabs"
     >
+      {/* Guest Selection Bar */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <User className="w-4 h-4" />
+              Select Guest:
+            </div>
+            {guestsLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : activeGuests.length === 0 ? (
+              <span className="text-sm text-muted-foreground">No active guests</span>
+            ) : (
+              <ScrollArea className="flex-1">
+                <div className="flex gap-2">
+                  {activeGuests.map((guest) => (
+                    <Button
+                      key={guest.guestId}
+                      variant={selectedGuest?.guestId === guest.guestId ? "default" : "outline"}
+                      size="sm"
+                      className="flex items-center gap-2 whitespace-nowrap"
+                      onClick={() => handleGuestSelect(guest)}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-3 h-3" />
+                      </div>
+                      <span>{guest.guestName}</span>
+                      <span className="text-xs opacity-70 flex items-center gap-1">
+                        <BedDouble className="w-3 h-3" />
+                        {guest.roomId}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+            {selectedGuest && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/guests")}
+                className="ml-auto"
+              >
+                View Guest Tab
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Products Section */}
         <div className="lg:col-span-2 space-y-6">
@@ -390,6 +466,27 @@ const POS = () => {
             </div>
           )}
 
+          {/* Service Type Filter - Only show for Services category */}
+          {isServicesCategory && (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {serviceTypeOptions.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <Button
+                    key={option.value}
+                    variant={activeServiceType === option.value ? "default" : "outline"}
+                    size="sm"
+                    className="flex items-center gap-2 whitespace-nowrap"
+                    onClick={() => setActiveServiceType(option.value)}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Search and Add Button */}
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -401,7 +498,7 @@ const POS = () => {
                 className="pl-10"
               />
             </div>
-            {isServicesCategory && (
+            {isServicesCategory && isManager && (
               <Button onClick={handleAddProduct} className="flex items-center gap-2">
                 <PlusCircle className="w-4 h-4" />
                 Add Service
@@ -410,7 +507,7 @@ const POS = () => {
           </div>
 
           {/* Products Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {productsLoading ? (
               <div className="col-span-full flex items-center justify-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
@@ -422,38 +519,36 @@ const POS = () => {
                   : "No products match your search."}
               </div>
             ) : (
-              filteredProducts.map((product) => (
-                <Card
-                  key={product.id}
-                  className="cursor-pointer hover:border-gray-400 transition-colors duration-200 relative group"
-                  onClick={() => addToCart(product)}
-                >
-                  {isServicesCategory && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white"
-                      onClick={(e) => handleEditProduct(product, e)}
-                    >
-                      <Edit className="w-3 h-3" />
-                    </Button>
-                  )}
-                  <CardContent className="p-4">
-                    <div className="aspect-square bg-gray-100 rounded-sm mb-3 flex items-center justify-center">
-                      <ShoppingCart className="w-6 h-6 text-gray-300" />
-                    </div>
-                    <h3 className="font-medium text-sm text-black">{product.name}</h3>
-                    {product.description && (
-                      <p className="text-xs text-gray-500 line-clamp-1 mt-1">
-                        {product.description}
-                      </p>
+              filteredProducts.map((product) => {
+                const ProductIcon = getProductIcon(product.name);
+                return (
+                  <Card
+                    key={product.id}
+                    className="cursor-pointer hover:border-gray-400 transition-colors duration-200 relative group"
+                    onClick={() => addToCart(product)}
+                  >
+                    {isServicesCategory && isManager && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white"
+                        onClick={(e) => handleEditProduct(product, e)}
+                      >
+                        <Edit className="w-3 h-3" />
+                      </Button>
                     )}
-                    <p className="text-base font-medium text-black mt-2">
-                      ₱{Number(product.price).toFixed(2)}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))
+                    <CardContent className="p-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-sm mb-2 flex items-center justify-center mx-auto">
+                        <ProductIcon className="w-5 h-5 text-gray-500" />
+                      </div>
+                      <h3 className="font-medium text-xs text-black text-center line-clamp-2">{product.name}</h3>
+                      <p className="text-sm font-medium text-black mt-1 text-center">
+                        ₱{Number(product.price).toFixed(0)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </div>
         </div>
@@ -464,14 +559,40 @@ const POS = () => {
             <CardTitle className="flex items-center gap-2 text-base">
               <ShoppingCart className="w-4 h-4" />
               Current Order
-              {cart.length > 0 && (
-                <span className="ml-auto text-sm font-normal text-gray-500">
-                  {cart.reduce((sum, item) => sum + item.quantity, 0)} items
+              {selectedGuest && (
+                <span className="ml-auto text-sm font-normal text-primary">
+                  {selectedGuest.guestName}
                 </span>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4">
+            {/* Selected Guest Info */}
+            {selectedGuest && (
+              <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">{selectedGuest.guestName}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <BedDouble className="w-3 h-3" />
+                      Room {selectedGuest.roomId}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!selectedGuest && cart.length > 0 && (
+              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-sm">
+                <p className="text-sm text-orange-700 font-medium">
+                  Please select a guest above to add items to their tab
+                </p>
+              </div>
+            )}
+
             {/* Cart Items */}
             <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
               {cart.length === 0 ? (
@@ -553,48 +674,6 @@ const POS = () => {
               </div>
             )}
 
-            {/* Guest Selection Status */}
-            {cart.length > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-sm">
-                {selectedGuest ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                        <User className="w-3 h-3 text-white" />
-                      </div>
-                      <div className="text-sm">
-                        <p className="font-medium text-blue-800">
-                          {selectedGuest.guestName}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedGuest(null)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      Change
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <AlertCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">Guest selection required for payment</span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsGuestDialogOpen(true)}
-                      className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                    >
-                      Select Guest
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
             {!appliedDiscount && cart.length > 0 && (
               <Button
                 variant="outline"
@@ -628,28 +707,19 @@ const POS = () => {
               </div>
             </div>
 
-            {/* Payment Buttons */}
-            <div className="grid grid-cols-2 gap-2 mt-6">
-              <Button
-                onClick={() => handlePaymentWithGuest("Card")}
-                disabled={createTransaction.isPending || cart.length === 0}
-              >
-                {createTransaction.isPending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <CreditCard className="w-4 h-4 mr-2" />
-                )}
-                Card
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => handlePaymentWithGuest("Cash")}
-                disabled={createTransaction.isPending || cart.length === 0}
-              >
-                <Banknote className="w-4 h-4 mr-2" />
-                Cash
-              </Button>
-            </div>
+            {/* Add to Tab Button */}
+            <Button
+              className="w-full mt-6"
+              onClick={handleAddToTab}
+              disabled={createTransaction.isPending || cart.length === 0 || !selectedGuest}
+            >
+              {createTransaction.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              Add to Guest Tab
+            </Button>
 
             {/* Clear Cart */}
             {cart.length > 0 && (
@@ -661,40 +731,9 @@ const POS = () => {
                 Clear Cart
               </Button>
             )}
-
-            {/* Receipt Button */}
-            {lastTransactionNumber && (
-              <Button
-                variant="outline"
-                className="w-full mt-2"
-                onClick={() => setIsReceiptDialogOpen(true)}
-              >
-                <Receipt className="w-4 h-4 mr-2" />
-                View Last Receipt
-              </Button>
-            )}
           </CardContent>
         </Card>
       </div>
-
-      <GuestSelectionDialog
-        open={isGuestDialogOpen}
-        onOpenChange={setIsGuestDialogOpen}
-        onSelect={handleGuestSelect}
-        total={total}
-      />
-
-      <ReceiptDialog
-        open={isReceiptDialogOpen}
-        onOpenChange={setIsReceiptDialogOpen}
-        items={lastTransactionDetails?.items || []}
-        subtotal={lastTransactionDetails?.subtotal || 0}
-        tax={lastTransactionDetails?.tax || 0}
-        total={lastTransactionDetails?.total || 0}
-        paymentMethod={lastTransactionDetails?.paymentMethod || ""}
-        transactionNumber={lastTransactionNumber}
-        guestName={lastTransactionDetails?.guestName}
-      />
 
       <DiscountDialog
         open={isDiscountDialogOpen}
