@@ -62,6 +62,7 @@ export interface POSProduct {
   price: number;
   updated_at: string;
   foodType?: FoodType;
+  serviceType?: string;
 }
 
 export interface POSTransactionItem {

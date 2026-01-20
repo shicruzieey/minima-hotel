@@ -32,10 +32,12 @@ export const useActiveGuests = () => {
         ...(value as Omit<Booking, "id">),
       }));
       
-      // Filter for checked_in guests (active bookings)
-      const activeBookings = bookings.filter(b => 
-        b.status === "checked_in" || b.status === "confirmed"
-      );
+      // Filter for active guests - include checked_in, confirmed, and any status that's not checked_out or paid
+      const activeBookings = bookings.filter(b => {
+        const status = b.status?.toLowerCase() || "";
+        return status === "checked_in" || status === "confirmed" || 
+               (status !== "checked_out" && status !== "paid" && status !== "cancelled");
+      });
       
       return activeBookings.map(booking => ({
         id: booking.guestId,

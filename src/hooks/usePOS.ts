@@ -325,8 +325,52 @@ export const usePOSProducts = () => {
         .map(([id, value]) => ({
           id,
           ...(value as Omit<POSProduct, "id">),
+        }));
+
+      // Fetch categories
+      const categoryIds = [...new Set(products.map(p => p.category_id))];
+      const categoriesRef = ref(db, "pos_categories");
+      const categoriesSnapshot = await get(categoriesRef);
+      
+      const categoriesMap = new Map<string, POSCategory>();
+      if (categoriesSnapshot.exists()) {
+        const categoriesData = categoriesSnapshot.val();
+        Object.entries(categoriesData).forEach(([id, value]) => {
+          if (categoryIds.includes(id)) {
+            categoriesMap.set(id, { id, ...(value as Omit<POSCategory, "id">) });
+          }
+        });
+      }
+
+      return products
+        .map(product => ({
+          ...product,
+          category: categoriesMap.get(product.category_id),
         }))
-        .filter(p => p.is_available);
+        .sort((a, b) => a.name.localeCompare(b.name)) as ProductWithCategory[];
+    },
+  });
+};
+
+export const usePOSProductsIncludeArchived = () => {
+  return useQuery({
+    queryKey: ["pos-products-all"],
+    queryFn: async () => {
+      // Seed default services if none exist
+      await seedDefaultServices();
+      
+      // Fetch products (including archived)
+      const productsRef = ref(db, "pos_products");
+      const productsSnapshot = await get(productsRef);
+      
+      if (!productsSnapshot.exists()) return [];
+      
+      const productsData = productsSnapshot.val();
+      const products: POSProduct[] = Object.entries(productsData)
+        .map(([id, value]) => ({
+          id,
+          ...(value as Omit<POSProduct, "id">),
+        }));
 
       // Fetch categories
       const categoryIds = [...new Set(products.map(p => p.category_id))];
@@ -459,6 +503,7 @@ export const useCreateProduct = () => {
       category_id: string;
       is_available: boolean;
       foodType?: FoodType;
+      serviceType?: string;
     }) => {
       const productsRef = ref(db, "pos_products");
       const newProductRef = push(productsRef);
@@ -474,6 +519,7 @@ export const useCreateProduct = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pos-products"] });
+      queryClient.invalidateQueries({ queryKey: ["pos-products-all"] });
     },
   });
 };
@@ -493,6 +539,7 @@ export const useUpdateProduct = () => {
       category_id: string;
       is_available: boolean;
       foodType?: FoodType;
+      serviceType?: string;
     }) => {
       const productRef = ref(db, `pos_products/${id}`);
       
@@ -506,6 +553,7 @@ export const useUpdateProduct = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pos-products"] });
+      queryClient.invalidateQueries({ queryKey: ["pos-products-all"] });
     },
   });
 };
@@ -554,10 +602,12 @@ export const useActiveGuestsForPOS = () => {
         ...(value as Omit<Booking, "id">),
       }));
       
-      // Filter for checked_in or confirmed guests only
-      const activeBookings = bookings.filter(b => 
-        b.status === "checked_in" || b.status === "confirmed"
-      );
+      // Filter for active guests - same logic as useActiveGuests
+      const activeBookings = bookings.filter(b => {
+        const status = b.status?.toLowerCase() || "";
+        return status === "checked_in" || status === "confirmed" || 
+               (status !== "checked_out" && status !== "paid" && status !== "cancelled");
+      });
       
       return activeBookings.map(booking => ({
         id: booking.guestId,

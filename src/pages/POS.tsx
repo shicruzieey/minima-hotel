@@ -1,10 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Coffee, 
   UtensilsCrossed, 
@@ -45,7 +44,7 @@ import {
   ConciergeBell
 } from "lucide-react";
 import { toast } from "sonner";
-import { usePOSCategories, usePOSProducts, useCreateTransaction, useCreateProduct, useUpdateProduct, useActiveGuestsForPOS, CartItem, ProductWithCategory, GuestFromBooking } from "@/hooks/usePOS";
+import { usePOSCategories, usePOSProducts, usePOSProductsIncludeArchived, useCreateTransaction, useCreateProduct, useUpdateProduct, useActiveGuestsForPOS, CartItem, ProductWithCategory, GuestFromBooking } from "@/hooks/usePOS";
 import { DiscountDialog } from "@/components/pos/DiscountDialog";
 import { ProductDialog, ProductFormData } from "@/components/pos/ProductDialog";
 import { validateCartQuantity, validateCartTotal, validateProductAvailability, validateSearchQuery } from "@/utils/validations";
@@ -141,6 +140,7 @@ const POS = () => {
   const [activeServiceType, setActiveServiceType] = useState<ServiceType>("all");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const [isDiscountDialogOpen, setIsDiscountDialogOpen] = useState(false);
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductWithCategory | null>(null);
@@ -149,10 +149,26 @@ const POS = () => {
 
   const { data: categories, isLoading: categoriesLoading } = usePOSCategories();
   const { data: products, isLoading: productsLoading } = usePOSProducts();
+  const { data: allProducts, isLoading: allProductsLoading } = usePOSProductsIncludeArchived();
   const { data: activeGuests = [], isLoading: guestsLoading } = useActiveGuestsForPOS();
   const createTransaction = useCreateTransaction();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+
+  // Check for pre-selected guest from Guests page
+  useEffect(() => {
+    const savedGuest = sessionStorage.getItem('selectedGuest');
+    if (savedGuest) {
+      try {
+        const guest = JSON.parse(savedGuest);
+        setSelectedGuest(guest);
+        sessionStorage.removeItem('selectedGuest'); // Clear after loading
+        toast.success(`Selected: ${guest.guestName} (Room ${guest.roomId})`);
+      } catch (error) {
+        console.error('Failed to parse saved guest:', error);
+      }
+    }
+  }, []);
 
   // Set default category when data loads
   useMemo(() => {
@@ -173,13 +189,23 @@ const POS = () => {
     return currentCategory?.name.toLowerCase() === "services";
   }, [categories, activeCategory]);
 
+  // Check if there are archived services
+  const hasArchivedServices = useMemo(() => {
+    return allProducts?.some(p => p.category_id === "services" && !p.is_available) || false;
+  }, [allProducts]);
+
   const filteredProducts = useMemo(() => {
     const searchValidation = validateSearchQuery(searchQuery);
     if (!searchValidation.isValid) {
       return products || [];
     }
     
-    return products?.filter(
+    // When showing archived, only show archived products. Otherwise, only show active products.
+    const productsToFilter = showArchived && isManager 
+      ? allProducts?.filter(p => !p.is_available) 
+      : products?.filter(p => p.is_available);
+    
+    return productsToFilter?.filter(
       (p) => {
         const matchesCategory = !activeCategory || p.category_id === activeCategory;
         const matchesFoodType = !isFoodsCategory || activeFoodType === "all" || p.foodType === activeFoodType;
@@ -188,9 +214,15 @@ const POS = () => {
         return matchesCategory && matchesFoodType && matchesServiceType && matchesSearch;
       }
     ) || [];
-  }, [products, activeCategory, activeFoodType, activeServiceType, searchQuery, isFoodsCategory, isServicesCategory]);
+  }, [products, allProducts, activeCategory, activeFoodType, activeServiceType, searchQuery, isFoodsCategory, isServicesCategory, showArchived, isManager]);
 
   const addToCart = (product: ProductWithCategory) => {
+    // Prevent adding archived products to cart
+    if (!product.is_available) {
+      toast.error("This service is archived and cannot be added to cart");
+      return;
+    }
+
     const availabilityValidation = validateProductAvailability(product.is_available);
     if (!availabilityValidation.isValid) {
       toast.error(availabilityValidation.message || "Product not available");
@@ -340,8 +372,14 @@ const POS = () => {
           price: data.price,
           category_id: data.category_id,
           is_available: data.is_available,
+          serviceType: data.serviceType,
         });
         toast.success("Service updated successfully");
+        
+        // If we just unarchived a service while viewing archived, switch back to active view
+        if (showArchived && data.is_available) {
+          setShowArchived(false);
+        }
       } else {
         await createProduct.mutateAsync({
           name: data.name,
@@ -349,6 +387,7 @@ const POS = () => {
           price: data.price,
           category_id: data.category_id,
           is_available: data.is_available,
+          serviceType: data.serviceType,
         });
         toast.success("Service added successfully");
       }
@@ -368,7 +407,7 @@ const POS = () => {
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground min-w-fit">
               <User className="w-4 h-4" />
               Select Guest:
             </div>
@@ -377,35 +416,38 @@ const POS = () => {
             ) : activeGuests.length === 0 ? (
               <span className="text-sm text-muted-foreground">No active guests</span>
             ) : (
-              <ScrollArea className="flex-1">
-                <div className="flex gap-2">
+              <div className="flex-1 flex items-center gap-3">
+                <select
+                  value={selectedGuest?.guestId || ""}
+                  onChange={(e) => {
+                    const guest = activeGuests.find(g => g.guestId === e.target.value);
+                    if (guest) handleGuestSelect(guest);
+                  }}
+                  className="flex-1 max-w-md px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                >
+                  <option value="">-- Select a guest --</option>
                   {activeGuests.map((guest) => (
-                    <Button
-                      key={guest.guestId}
-                      variant={selectedGuest?.guestId === guest.guestId ? "default" : "outline"}
-                      size="sm"
-                      className="flex items-center gap-2 whitespace-nowrap"
-                      onClick={() => handleGuestSelect(guest)}
-                    >
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="w-3 h-3" />
-                      </div>
-                      <span>{guest.guestName}</span>
-                      <span className="text-xs opacity-70 flex items-center gap-1">
-                        <BedDouble className="w-3 h-3" />
-                        {guest.roomId}
-                      </span>
-                    </Button>
+                    <option key={guest.guestId} value={guest.guestId}>
+                      {guest.guestName} - Room {guest.roomId}
+                    </option>
                   ))}
-                </div>
-              </ScrollArea>
+                </select>
+                {selectedGuest && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md">
+                    <BedDouble className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium text-primary">
+                      Room {selectedGuest.roomId}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
             {selectedGuest && (
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={() => navigate("/guests")}
-                className="ml-auto"
+                className="ml-auto whitespace-nowrap"
               >
                 View Guest Tab
                 <ChevronRight className="w-4 h-4 ml-1" />
@@ -499,39 +541,87 @@ const POS = () => {
               />
             </div>
             {isServicesCategory && isManager && (
-              <Button onClick={handleAddProduct} className="flex items-center gap-2">
-                <PlusCircle className="w-4 h-4" />
-                Add Service
-              </Button>
+              <>
+                <Button onClick={handleAddProduct} className="flex items-center gap-2">
+                  <PlusCircle className="w-4 h-4" />
+                  Add Service
+                </Button>
+                {hasArchivedServices && (
+                  <Button 
+                    variant={showArchived ? "default" : "outline"}
+                    onClick={() => setShowArchived(!showArchived)}
+                    className="flex items-center gap-2"
+                  >
+                    {showArchived ? "Show Active Services" : "Show Archived Services"}
+                  </Button>
+                )}
+              </>
             )}
           </div>
 
           {/* Products Grid */}
           <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {productsLoading ? (
+            {productsLoading || allProductsLoading ? (
               <div className="col-span-full flex items-center justify-center py-12">
                 <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="col-span-full text-center py-12 text-gray-500 text-sm">
-                {products?.length === 0
-                  ? "No products available. Add products to the database to get started."
-                  : "No products match your search."}
+                {showArchived ? (
+                  <div className="space-y-2">
+                    <p>No archived services found</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowArchived(false)}
+                    >
+                      View Active Services
+                    </Button>
+                  </div>
+                ) : products?.length === 0 ? (
+                  "No products available. Add products to the database to get started."
+                ) : (
+                  "No products match your search."
+                )}
               </div>
             ) : (
-              filteredProducts.map((product) => {
+              <>
+                {showArchived && (
+                  <div className="col-span-full bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-700">
+                    Viewing {filteredProducts.length} archived service{filteredProducts.length !== 1 ? 's' : ''}. 
+                    <Button 
+                      variant="link" 
+                      className="text-orange-700 underline p-0 h-auto ml-1"
+                      onClick={() => setShowArchived(false)}
+                    >
+                      Switch to active services
+                    </Button>
+                  </div>
+                )}
+                {filteredProducts.map((product) => {
                 const ProductIcon = getProductIcon(product.name);
                 return (
                   <Card
                     key={product.id}
-                    className="cursor-pointer hover:border-gray-400 transition-colors duration-200 relative group"
-                    onClick={() => addToCart(product)}
+                    className={`transition-colors duration-200 relative group ${
+                      !product.is_available 
+                        ? "opacity-60 bg-gray-50 cursor-not-allowed" 
+                        : "cursor-pointer hover:border-gray-400"
+                    }`}
+                    onClick={() => product.is_available && addToCart(product)}
                   >
+                    {!product.is_available && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/5 rounded-lg pointer-events-none">
+                        <span className="text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded">
+                          Archived
+                        </span>
+                      </div>
+                    )}
                     {isServicesCategory && isManager && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white"
+                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white z-10"
                         onClick={(e) => handleEditProduct(product, e)}
                       >
                         <Edit className="w-3 h-3" />
@@ -548,7 +638,8 @@ const POS = () => {
                     </CardContent>
                   </Card>
                 );
-              })
+              })}
+              </>
             )}
           </div>
         </div>

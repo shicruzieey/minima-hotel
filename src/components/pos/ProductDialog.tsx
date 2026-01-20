@@ -28,7 +28,16 @@ export interface ProductFormData {
   price: number;
   category_id: string;
   is_available: boolean;
+  serviceType?: string;
 }
+
+const SERVICE_TYPES = [
+  { value: "laundry", label: "Laundry" },
+  { value: "spa", label: "Spa & Wellness" },
+  { value: "transport", label: "Transport" },
+  { value: "room", label: "Room Services" },
+  { value: "other", label: "Other" },
+];
 
 export const ProductDialog = ({
   open,
@@ -43,6 +52,7 @@ export const ProductDialog = ({
     price: 0,
     category_id: "services",
     is_available: true,
+    serviceType: "other",
   });
 
   const isEditing = !!product;
@@ -56,6 +66,7 @@ export const ProductDialog = ({
         price: product.price,
         category_id: "services",
         is_available: product.is_available,
+        serviceType: product.serviceType || "other",
       });
     } else {
       setFormData({
@@ -64,6 +75,7 @@ export const ProductDialog = ({
         price: 0,
         category_id: "services",
         is_available: true,
+        serviceType: "other",
       });
     }
   }, [product, open]);
@@ -126,6 +138,22 @@ export const ProductDialog = ({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="serviceType">Service Type *</Label>
+            <select
+              id="serviceType"
+              value={formData.serviceType || "other"}
+              onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {SERVICE_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="category">Category</Label>
             <Input
               id="category"
@@ -136,8 +164,15 @@ export const ProductDialog = ({
             <input type="hidden" value="services" />
           </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="available">Available for sale</Label>
+          <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div>
+              <Label htmlFor="available" className="text-sm font-medium">Available for sale</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                {formData.is_available 
+                  ? "✓ Service is visible in POS" 
+                  : "✗ Service is archived (hidden from POS)"}
+              </p>
+            </div>
             <Switch
               id="available"
               checked={formData.is_available}

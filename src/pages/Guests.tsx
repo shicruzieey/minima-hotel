@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +34,8 @@ import {
   Banknote,
   CheckCircle,
   XCircle,
-  ShieldAlert
+  ShieldAlert,
+  ShoppingCart
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
@@ -48,6 +50,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const Guests = () => {
   const { isManager, verifyManagerCode } = useAuth();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGuest, setSelectedGuest] = useState<GuestWithBooking | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -333,6 +336,23 @@ const Guests = () => {
                   <span>Check-out: {formatDate(selectedGuest.checkOut)}</span>
                 </div>
               </div>
+
+              {/* Add to Tab Button */}
+              <Button 
+                className="w-full"
+                onClick={() => {
+                  // Store guest info in sessionStorage to pre-select in POS
+                  sessionStorage.setItem('selectedGuest', JSON.stringify({
+                    guestId: selectedGuest.guestId,
+                    guestName: selectedGuest.guestName,
+                    roomId: selectedGuest.roomId,
+                  }));
+                  navigate('/pos');
+                }}
+              >
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                Add Items to Guest Tab
+              </Button>
 
               {/* Summary Cards */}
               <div className="grid grid-cols-4 gap-4">
