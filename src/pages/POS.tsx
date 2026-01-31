@@ -161,14 +161,19 @@ const POS = () => {
     if (savedGuest) {
       try {
         const guest = JSON.parse(savedGuest);
-        setSelectedGuest(guest);
+        // Verify guest is still in active list
+        if (activeGuests.some(g => g.guestId === guest.guestId)) {
+          setSelectedGuest(guest);
+          toast.success(`Selected: ${guest.guestName} (Room ${guest.roomId})`);
+        } else {
+          toast.error("This guest is no longer active and cannot have items added");
+        }
         sessionStorage.removeItem('selectedGuest'); // Clear after loading
-        toast.success(`Selected: ${guest.guestName} (Room ${guest.roomId})`);
       } catch (error) {
         console.error('Failed to parse saved guest:', error);
       }
     }
-  }, []);
+  }, [activeGuests]);
 
   // Set default category when data loads
   useMemo(() => {
@@ -322,6 +327,14 @@ const POS = () => {
 
     if (!selectedGuest) {
       toast.error("Please select a guest first");
+      return;
+    }
+
+    // Check if guest is still in active list
+    const isGuestActive = activeGuests.some(g => g.guestId === selectedGuest.guestId);
+    if (!isGuestActive) {
+      toast.error("This guest is no longer active. Please select an active guest.");
+      setSelectedGuest(null);
       return;
     }
 

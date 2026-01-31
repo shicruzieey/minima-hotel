@@ -338,24 +338,28 @@ const Guests = () => {
               </div>
 
               {/* Add to Tab Button */}
-              <Button 
-                className="w-full"
-                onClick={() => {
-                  // Store guest info in sessionStorage to pre-select in POS
-                  sessionStorage.setItem('selectedGuest', JSON.stringify({
-                    guestId: selectedGuest.guestId,
-                    guestName: selectedGuest.guestName,
-                    roomId: selectedGuest.roomId,
-                  }));
-                  navigate('/pos');
-                }}
-              >
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Add Items to Guest Tab
-              </Button>
+              {selectedGuest.status !== "checked_out" && 
+               selectedGuest.status !== "Checked Out" && 
+               selectedGuest.status !== "paid" && (
+                <Button 
+                  className="w-full"
+                  onClick={() => {
+                    // Store guest info in sessionStorage to pre-select in POS
+                    sessionStorage.setItem('selectedGuest', JSON.stringify({
+                      guestId: selectedGuest.guestId,
+                      guestName: selectedGuest.guestName,
+                      roomId: selectedGuest.roomId,
+                    }));
+                    navigate('/pos');
+                  }}
+                >
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Add Items to Guest Tab
+                </Button>
+              )}
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <Card>
                   <CardContent className="p-4 text-center">
                     <p className="text-xl font-bold">₱{selectedGuest.totalPrice.toLocaleString()}</p>
@@ -370,18 +374,12 @@ const Guests = () => {
                     <p className="text-xs text-muted-foreground">Pending ({pendingCount})</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <p className="text-xl font-bold text-green-600">₱{(totalSpent - pendingTotal).toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">Paid</p>
-                  </CardContent>
-                </Card>
                 <Card className="border-primary/20 bg-primary/5">
                   <CardContent className="p-4 text-center">
                     <p className="text-xl font-bold text-primary">
-                      ₱{(selectedGuest.totalPrice + pendingTotal).toLocaleString()}
+                      ₱{(selectedGuest.totalPrice + totalSpent).toLocaleString()}
                     </p>
-                    <p className="text-xs text-muted-foreground">Total Due</p>
+                    <p className="text-xs text-muted-foreground">Total Paid</p>
                   </CardContent>
                 </Card>
               </div>

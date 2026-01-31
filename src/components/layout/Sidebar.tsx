@@ -3,7 +3,6 @@ import {
   LayoutDashboard, 
   ShoppingCart, 
   Package, 
-  Settings,
   LogOut,
   Users,
   Shield,
@@ -105,10 +104,6 @@ const Sidebar = () => {
 
       {/* Bottom Section */}
       <div className="p-4 border-t border-sidebar-border space-y-1">
-        <NavLink to="/settings" className="nav-item">
-          <Settings className="w-4 h-4" />
-          <span className="text-sm">Settings</span>
-        </NavLink>
         <button 
           onClick={handleLogout}
           className="nav-item w-full text-gray-500 hover:text-white"
