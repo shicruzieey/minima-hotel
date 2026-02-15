@@ -8,7 +8,6 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Login from "./pages/shared/Login";
 import ManagerDashboard from "./pages/manager/Dashboard";
 import ManagerInventory from "./pages/manager/Inventory";
-import ManagerSettings from "./pages/manager/Settings";
 import ReceptionistDashboard from "./pages/receptionist/Dashboard";
 import ReceptionistPOS from "./pages/receptionist/POS";
 import ReceptionistGuests from "./pages/receptionist/Guests";
@@ -31,7 +30,6 @@ const App = () => (
             {/* Manager Routes */}
             <Route path="/manager/dashboard" element={<ProtectedRoute requiredRole="manager"><ManagerDashboard /></ProtectedRoute>} />
             <Route path="/manager/inventory" element={<ProtectedRoute requiredRole="manager"><ManagerInventory /></ProtectedRoute>} />
-            <Route path="/manager/settings" element={<ProtectedRoute requiredRole="manager"><ManagerSettings /></ProtectedRoute>} />
             <Route path="/manager/transactions" element={<ProtectedRoute requiredRole="manager"><TransactionHistory /></ProtectedRoute>} />
             
             {/* Receptionist Routes */}
@@ -44,7 +42,6 @@ const App = () => (
             <Route path="/pos" element={<ProtectedRoute><ReceptionistPOS /></ProtectedRoute>} />
             <Route path="/guests" element={<ProtectedRoute><ReceptionistGuests /></ProtectedRoute>} />
             <Route path="/inventory" element={<ProtectedRoute><ManagerInventory /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><ManagerSettings /></ProtectedRoute>} />
             <Route path="/transactions" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
             
             <Route path="*" element={<NotFound />} />

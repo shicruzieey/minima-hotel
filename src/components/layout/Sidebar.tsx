@@ -8,7 +8,6 @@ import {
   Users,
   Shield,
   User,
-  Settings,
   Receipt
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,7 +47,6 @@ const Sidebar = () => {
     { icon: Users, label: "Guests", path: "/guests" },
     { icon: ShoppingCart, label: "POS", path: "/pos" },
     { icon: Receipt, label: "Transactions", path: "/manager/transactions" },
-    { icon: Settings, label: "Settings", path: "/manager/settings" },
   ] : [
     { icon: LayoutDashboard, label: "Dashboard", path: "/receptionist/dashboard" },
     { icon: ShoppingCart, label: "POS", path: "/receptionist/pos" },

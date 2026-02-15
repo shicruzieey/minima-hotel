@@ -424,10 +424,11 @@ export const useActiveGuestsForPOS = () => {
         ...(value as Omit<Booking, "id">),
       }));
       
-      // Filter for active guests - only "Checked In" status
+      // Filter for checked-in guests only
       const activeBookings = bookings.filter(b => {
-        const status = b.status?.toLowerCase() || "";
-        return status === "checked in" || status === "checked_in" || status === "checkedin";
+        if (!b.status) return false;
+        const status = String(b.status).toLowerCase().trim();
+        return status === "checked-in" || status === "checked in" || status === "checkedin";
       });
       
       return activeBookings.map(booking => ({
