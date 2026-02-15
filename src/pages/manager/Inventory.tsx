@@ -38,6 +38,7 @@ const Inventory = () => {
   });
 
   const getStockStatus = (currentStock: number, restockThreshold: number) => {
+    if (!currentStock || currentStock === 0) return "out";
     if (currentStock < restockThreshold) return "critical";
     if (currentStock < restockThreshold * 1.5) return "low";
     return "normal";
@@ -172,12 +173,16 @@ const Inventory = () => {
                         <Badge 
                           variant="secondary"
                           className={
+                            status === "out" ? "bg-gray-500/10 text-gray-600 border-gray-500/20" :
                             status === "critical" ? "bg-destructive/10 text-destructive border-destructive/20" :
                             status === "low" ? "bg-warning/10 text-warning border-warning/20" :
                             "bg-success/10 text-success border-success/20"
                           }
                         >
-                          {status === "critical" ? "Critical" : status === "low" ? "Low" : "In Stock"}
+                          {status === "out" ? "Out of Stock" : 
+                           status === "critical" ? "Critical" : 
+                           status === "low" ? "Low" : 
+                           "In Stock"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">

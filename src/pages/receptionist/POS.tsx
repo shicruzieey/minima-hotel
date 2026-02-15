@@ -4,6 +4,25 @@ import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Coffee, 
   UtensilsCrossed, 
@@ -32,16 +51,18 @@ import {
   Dumbbell,
   Wifi,
   Bed,
-  Clock,
   Baby,
   PawPrint,
   Printer,
   Waves,
-  MapPin,
-  Plane,
   SprayCan,
   Utensils,
-  ConciergeBell
+  ConciergeBell,
+  CreditCard,
+  Banknote,
+  Receipt,
+  CheckCircle,
+  Printer as PrintIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { usePOSCategories, usePOSProducts, usePOSProductsIncludeArchived, useCreateTransaction, useCreateProduct, useUpdateProduct, useActiveGuestsForPOS, CartItem, ProductWithCategory, GuestFromBooking } from "@/hooks/usePOS";
@@ -83,7 +104,7 @@ const getCategoryIcon = (categoryName: string) => {
   return categoryIcons.default;
 };
 
-type FoodType = "all" | "breakfast" | "lunch" | "snack" | "dinner";
+type FoodType = "all" | "breakfast" | "lunch" | "snack" | "dinner" | "appetizer" | "beverage" | "dessert";
 type ServiceType = "all" | "laundry" | "spa" | "transport" | "room" | "other";
 
 const foodTypeOptions: { value: FoodType; label: string; icon: React.ElementType }[] = [
@@ -92,6 +113,9 @@ const foodTypeOptions: { value: FoodType; label: string; icon: React.ElementType
   { value: "lunch", label: "Lunch", icon: Sunset },
   { value: "snack", label: "Snack", icon: Cookie },
   { value: "dinner", label: "Dinner", icon: Moon },
+  { value: "appetizer", label: "Appetizer", icon: UtensilsCrossed },
+  { value: "beverage", label: "Beverage", icon: Wine },
+  { value: "dessert", label: "Dessert", icon: Cookie },
 ];
 
 const serviceTypeOptions: { value: ServiceType; label: string; icon: React.ElementType }[] = [
@@ -132,6 +156,17 @@ const getServiceType = (productName: string): ServiceType => {
   return "other";
 };
 
+// Check if service is only for pre-check-in (not for checked-in guests)
+const isPreCheckinService = (productName: string): boolean => {
+  const name = productName.toLowerCase();
+  return name.includes("airport pickup") || 
+         name.includes("early check-in") ||
+         name.includes("early checkin") ||
+         name.includes("airport transfer to hotel") ||
+         name.includes("pick up") ||
+         name.includes("pickup from airport");
+};
+
 const POS = () => {
   const navigate = useNavigate();
   const { isManager } = useAuth();
@@ -146,6 +181,15 @@ const POS = () => {
   const [editingProduct, setEditingProduct] = useState<ProductWithCategory | null>(null);
   const [appliedDiscount, setAppliedDiscount] = useState<Discount | null>(null);
   const [selectedGuest, setSelectedGuest] = useState<SelectedGuest | null>(null);
+  
+  // Payment dialog states
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | null>(null);
+  const [cashAmount, setCashAmount] = useState("");
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"guest-tab" | "walk-in" | null>(null);
+  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
+  const [lastTransaction, setLastTransaction] = useState<any>(null);
 
   const { data: categories, isLoading: categoriesLoading } = usePOSCategories();
   const { data: products, isLoading: productsLoading } = usePOSProducts();
@@ -213,10 +257,19 @@ const POS = () => {
     return productsToFilter?.filter(
       (p) => {
         const matchesCategory = !activeCategory || p.category_id === activeCategory;
-        const matchesFoodType = !isFoodsCategory || activeFoodType === "all" || p.foodType === activeFoodType;
+        
+        // Food type filter: "all" shows everything, specific types match the menu category
+        const matchesFoodType = !isFoodsCategory || 
+                                activeFoodType === "all" || 
+                                p.foodType === activeFoodType;
+        
         const matchesServiceType = !isServicesCategory || activeServiceType === "all" || getServiceType(p.name) === activeServiceType;
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesFoodType && matchesServiceType && matchesSearch;
+        
+        // Filter out pre-check-in services (like airport pickup) for checked-in guests
+        const isNotPreCheckinService = !isPreCheckinService(p.name);
+        
+        return matchesCategory && matchesFoodType && matchesServiceType && matchesSearch && isNotPreCheckinService;
       }
     ) || [];
   }, [products, allProducts, activeCategory, activeFoodType, activeServiceType, searchQuery, isFoodsCategory, isServicesCategory, showArchived, isManager]);
@@ -309,7 +362,28 @@ const POS = () => {
       guestName: guest.guestName,
       roomId: guest.roomId 
     });
+    // Clear any applied discount when selecting a guest
+    if (appliedDiscount) {
+      setAppliedDiscount(null);
+      toast.info("Discount removed - discounts apply at checkout");
+    }
     toast.success(`Selected: ${guest.guestName} (Room ${guest.roomId})`);
+  };
+
+  // Show confirmation before adding to guest tab
+  const handleAddToTabClick = () => {
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+
+    if (!selectedGuest) {
+      toast.error("Please select a guest first");
+      return;
+    }
+
+    setConfirmAction("guest-tab");
+    setIsConfirmDialogOpen(true);
   };
 
   // Add to guest's tab (pending transaction)
@@ -339,11 +413,11 @@ const POS = () => {
     }
 
     try {
-      await createTransaction.mutateAsync({
+      const result = await createTransaction.mutateAsync({
         transaction: {
-          subtotal: discountedSubtotal,
+          subtotal: subtotal, // Use original subtotal, no discount for guest tabs
           tax,
-          total,
+          total: subtotal + tax, // Recalculate total without discount
           payment_method: "pending",
           status: "pending",
           guest_id: selectedGuest.guestId,
@@ -356,11 +430,106 @@ const POS = () => {
         })),
       });
 
-      toast.success(`₱${total.toFixed(2)} added to ${selectedGuest.guestName}'s tab`);
+      const guestTotal = subtotal + tax;
+      toast.success(`Items added to ${selectedGuest.guestName}'s tab (₱${guestTotal.toFixed(2)})`);
+      
+      // Store transaction for receipt
+      setLastTransaction({
+        ...result,
+        items: cart,
+        guest_name: selectedGuest.guestName,
+      });
+      
       setCart([]);
       setAppliedDiscount(null);
+      setIsConfirmDialogOpen(false);
+      setIsReceiptDialogOpen(true);
     } catch (error) {
       toast.error("Failed to add to tab. Please try again.");
+    }
+  };
+
+  // Show payment dialog for walk-in
+  const handleWalkInPaymentClick = (method: "card" | "cash") => {
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+
+    setPaymentMethod(method);
+    
+    if (method === "cash") {
+      setCashAmount("");
+      setIsPaymentDialogOpen(true);
+    } else {
+      setConfirmAction("walk-in");
+      setIsConfirmDialogOpen(true);
+    }
+  };
+
+  // Walk-in payment (immediate payment for food orders)
+  const handleWalkInPayment = async () => {
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+
+    const totalValidation = validateCartTotal(total);
+    if (!totalValidation.isValid) {
+      toast.error(totalValidation.message || "Invalid cart total");
+      return;
+    }
+
+    // Validate cash amount if payment method is cash
+    if (paymentMethod === "cash") {
+      const cash = parseFloat(cashAmount);
+      if (isNaN(cash) || cash < total) {
+        toast.error(`Cash amount must be at least ₱${total.toFixed(2)}`);
+        return;
+      }
+    }
+
+    try {
+      const result = await createTransaction.mutateAsync({
+        transaction: {
+          subtotal: discountedSubtotal,
+          tax,
+          total,
+          payment_method: paymentMethod || "card",
+          status: "completed",
+          guest_id: "walk-in",
+          guest_name: "Walk-in Customer",
+        },
+        items: cart.map((item) => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          unit_price: item.price,
+        })),
+      });
+
+      const change = paymentMethod === "cash" ? parseFloat(cashAmount) - total : 0;
+      
+      toast.success(`Payment of ₱${total.toFixed(2)} received via ${paymentMethod}`);
+      if (change > 0) {
+        toast.info(`Change: ₱${change.toFixed(2)}`);
+      }
+
+      // Store transaction for receipt
+      setLastTransaction({
+        ...result,
+        items: cart,
+        guest_name: "Walk-in Customer",
+        cash_amount: paymentMethod === "cash" ? parseFloat(cashAmount) : undefined,
+        change: change > 0 ? change : undefined,
+      });
+
+      setCart([]);
+      setAppliedDiscount(null);
+      setIsPaymentDialogOpen(false);
+      setIsConfirmDialogOpen(false);
+      setIsReceiptDialogOpen(true);
+    } catch (error) {
+      toast.error("Failed to process payment. Please try again.");
     }
   };
 
@@ -416,55 +585,109 @@ const POS = () => {
       title="Point of Sale" 
       subtitle="Add items to guest tabs"
     >
-      {/* Guest Selection Bar */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground min-w-fit">
-              <User className="w-4 h-4" />
-              Select Guest:
-            </div>
-            {guestsLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : activeGuests.length === 0 ? (
-              <span className="text-sm text-muted-foreground">No active guests</span>
-            ) : (
-              <div className="flex-1 flex items-center gap-3">
-                <select
-                  value={selectedGuest?.guestId || ""}
-                  onChange={(e) => {
-                    const guest = activeGuests.find(g => g.guestId === e.target.value);
-                    if (guest) handleGuestSelect(guest);
-                  }}
-                  className="flex-1 max-w-md px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+      {/* Guest Selection Bar - Enhanced */}
+      <Card className="mb-6 border-2 border-primary/20 shadow-sm">
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base">Guest Selection</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {activeGuests.length} checked-in guest{activeGuests.length !== 1 ? 's' : ''} available
+                  </p>
+                </div>
+              </div>
+              {selectedGuest && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/guests")}
+                  className="whitespace-nowrap"
                 >
-                  <option value="">-- Select a guest --</option>
-                  {activeGuests.map((guest) => (
-                    <option key={guest.guestId} value={guest.guestId}>
-                      {guest.guestName} - Room {guest.roomId}
-                    </option>
-                  ))}
-                </select>
+                  View Guest Tab
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              )}
+            </div>
+
+            {/* Guest Selector */}
+            {guestsLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading guests...</span>
+              </div>
+            ) : activeGuests.length === 0 ? (
+              <div className="bg-orange-50 border border-orange-200 rounded-md p-4 text-center">
+                <p className="text-sm text-orange-700 font-medium">No checked-in guests available</p>
+                <p className="text-xs text-orange-600 mt-1">
+                  Only guests who are currently checked in can order food and services
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/guests")}
+                  className="mt-3"
+                >
+                  Go to Guests
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Dropdown Selector */}
+                <div className="relative">
+                  <select
+                    value={selectedGuest?.guestId || ""}
+                    onChange={(e) => {
+                      const guest = activeGuests.find(g => g.guestId === e.target.value);
+                      if (guest) handleGuestSelect(guest);
+                    }}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white appearance-none cursor-pointer"
+                  >
+                    <option value="">-- Select a guest to add items to their tab --</option>
+                    {activeGuests.map((guest) => (
+                      <option key={guest.guestId} value={guest.guestId}>
+                        {guest.guestName} - Room {guest.roomId} ({guest.roomType})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none rotate-90" />
+                </div>
+
+                {/* Selected Guest Display */}
                 {selectedGuest && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md">
-                    <BedDouble className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium text-primary">
-                      Room {selectedGuest.roomId}
-                    </span>
+                  <div className="bg-primary/5 border-2 border-primary/30 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                          <User className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-base text-primary">{selectedGuest.guestName}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <BedDouble className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              Room {selectedGuest.roomId}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedGuest(null)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        Change Guest
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
-            )}
-            {selectedGuest && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/guests")}
-                className="ml-auto whitespace-nowrap"
-              >
-                View Guest Tab
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
             )}
           </div>
         </CardContent>
@@ -689,10 +912,24 @@ const POS = () => {
               </div>
             )}
 
-            {!selectedGuest && cart.length > 0 && (
+            {!selectedGuest && cart.length > 0 && isFoodsCategory && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-sm">
+                <p className="text-sm text-blue-700 font-medium">
+                  Walk-in customer - Pay immediately below
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Or select a guest to add to their tab
+                </p>
+              </div>
+            )}
+
+            {!selectedGuest && cart.length > 0 && isServicesCategory && (
               <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-sm">
                 <p className="text-sm text-orange-700 font-medium">
-                  Please select a guest above to add items to their tab
+                  Services require a guest selection
+                </p>
+                <p className="text-xs text-orange-600 mt-1">
+                  Please select a checked-in guest above
                 </p>
               </div>
             )}
@@ -751,42 +988,55 @@ const POS = () => {
               )}
             </div>
 
-            {/* Discount Section */}
-            {appliedDiscount && (
-              <div className="bg-green-50 border border-green-200 rounded-sm p-3 mb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Percent className="w-4 h-4 text-green-600" />
-                    <div>
-                      <p className="text-sm font-medium text-green-800">
-                        {appliedDiscount.code}
-                      </p>
-                      <p className="text-xs text-green-600">
-                        {appliedDiscount.type === "percentage" ? `${appliedDiscount.value}% off` : `₱${appliedDiscount.value} off`}
-                      </p>
+            {/* Discount Section - Only for walk-in customers */}
+            {!selectedGuest && (
+              <>
+                {appliedDiscount && (
+                  <div className="bg-green-50 border border-green-200 rounded-sm p-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Percent className="w-4 h-4 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-green-800">
+                            {appliedDiscount.code}
+                          </p>
+                          <p className="text-xs text-green-600">
+                            {appliedDiscount.type === "percentage" ? `${appliedDiscount.value}% off` : `₱${appliedDiscount.value} off`}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveDiscount}
+                        className="text-green-600 hover:text-green-800"
+                      >
+                        Remove
+                      </Button>
                     </div>
                   </div>
+                )}
+
+                {!appliedDiscount && cart.length > 0 && (
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleRemoveDiscount}
-                    className="text-green-600 hover:text-green-800"
+                    variant="outline"
+                    className="w-full mb-4"
+                    onClick={() => setIsDiscountDialogOpen(true)}
                   >
-                    Remove
+                    <Percent className="w-4 h-4 mr-2" />
+                    Apply Discount
                   </Button>
-                </div>
-              </div>
+                )}
+              </>
             )}
 
-            {!appliedDiscount && cart.length > 0 && (
-              <Button
-                variant="outline"
-                className="w-full mb-4"
-                onClick={() => setIsDiscountDialogOpen(true)}
-              >
-                <Percent className="w-4 h-4 mr-2" />
-                Apply Discount
-              </Button>
+            {/* Info for guest orders */}
+            {selectedGuest && cart.length > 0 && (
+              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-sm">
+                <p className="text-xs text-muted-foreground text-center">
+                  Discounts will be applied at checkout
+                </p>
+              </div>
             )}
 
             {/* Totals */}
@@ -795,7 +1045,7 @@ const POS = () => {
                 <span className="text-gray-500">Subtotal</span>
                 <span className="font-medium">₱{subtotal.toFixed(2)}</span>
               </div>
-              {discountAmount > 0 && (
+              {!selectedGuest && discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Discount ({appliedDiscount?.code})</span>
                   <span>-₱{discountAmount.toFixed(2)}</span>
@@ -803,27 +1053,77 @@ const POS = () => {
               )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Tax (10%)</span>
-                <span className="font-medium">₱{tax.toFixed(2)}</span>
+                <span className="font-medium">₱{(selectedGuest ? subtotal * 0.1 : tax).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-base font-medium pt-2 border-t border-gray-200">
                 <span>Total</span>
-                <span>₱{total.toFixed(2)}</span>
+                <span>₱{(selectedGuest ? subtotal + (subtotal * 0.1) : total).toFixed(2)}</span>
               </div>
             </div>
 
-            {/* Add to Tab Button */}
-            <Button
-              className="w-full mt-6"
-              onClick={handleAddToTab}
-              disabled={createTransaction.isPending || cart.length === 0 || !selectedGuest}
-            >
-              {createTransaction.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4 mr-2" />
-              )}
-              Add to Guest Tab
-            </Button>
+            {/* Payment Buttons */}
+            {selectedGuest ? (
+              // Guest Tab - Add to tab button (for both food and services)
+              <Button
+                className="w-full mt-6"
+                onClick={handleAddToTabClick}
+                disabled={createTransaction.isPending || cart.length === 0}
+              >
+                {createTransaction.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4 mr-2" />
+                )}
+                Add to Guest Tab
+              </Button>
+            ) : (
+              // Walk-in - Direct payment buttons (only for food, no guest selected)
+              cart.length > 0 && (
+                <>
+                  {isFoodsCategory ? (
+                    <div className="mt-6 space-y-2">
+                      <p className="text-xs text-center text-muted-foreground mb-2">Walk-in Payment</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="default"
+                          onClick={() => handleWalkInPaymentClick("card")}
+                          disabled={createTransaction.isPending}
+                        >
+                          {createTransaction.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              Card
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleWalkInPaymentClick("cash")}
+                          disabled={createTransaction.isPending}
+                        >
+                          {createTransaction.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Banknote className="w-4 h-4 mr-2" />
+                              Cash
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-6 p-3 bg-orange-50 border border-orange-200 rounded-sm text-center">
+                      <p className="text-sm text-orange-700 font-medium">
+                        Services require a guest selection
+                      </p>
+                    </div>
+                  )}
+                </>
+              )
+            )}
 
             {/* Clear Cart */}
             {cart.length > 0 && (
@@ -853,6 +1153,274 @@ const POS = () => {
         onSave={handleSaveProduct}
         isLoading={createProduct.isPending || updateProduct.isPending}
       />
+
+      {/* Cash Payment Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cash Payment</DialogTitle>
+            <DialogDescription>
+              Enter the cash amount received from the customer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="total">Total Amount</Label>
+              <div className="text-2xl font-bold text-primary">
+                ₱{total.toFixed(2)}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cash-amount">Cash Received</Label>
+              <Input
+                id="cash-amount"
+                type="number"
+                placeholder="Enter amount"
+                value={cashAmount}
+                onChange={(e) => setCashAmount(e.target.value)}
+                min={total}
+                step="0.01"
+                autoFocus
+              />
+              {cashAmount && parseFloat(cashAmount) >= total && (
+                <p className="text-sm text-green-600">
+                  Change: ₱{(parseFloat(cashAmount) - total).toFixed(2)}
+                </p>
+              )}
+              {cashAmount && parseFloat(cashAmount) < total && (
+                <p className="text-sm text-destructive">
+                  Insufficient amount (need ₱{(total - parseFloat(cashAmount)).toFixed(2)} more)
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                setIsPaymentDialogOpen(false);
+                setConfirmAction("walk-in");
+                setIsConfirmDialogOpen(true);
+              }}
+              disabled={!cashAmount || parseFloat(cashAmount) < total}
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction === "guest-tab" ? (
+                <>
+                  Are you sure you want to add ₱{total.toFixed(2)} to {selectedGuest?.guestName}'s tab?
+                  <div className="mt-4 p-3 bg-gray-50 rounded-md space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Guest:</span>
+                      <span className="font-medium">{selectedGuest?.guestName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Room:</span>
+                      <span className="font-medium">{selectedGuest?.roomId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Amount:</span>
+                      <span className="font-medium">₱{total.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Status:</span>
+                      <span className="font-medium text-orange-600">Pending</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  Are you sure you want to process this walk-in payment?
+                  <div className="mt-4 p-3 bg-gray-50 rounded-md space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Customer:</span>
+                      <span className="font-medium">Walk-in</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Payment Method:</span>
+                      <span className="font-medium capitalize">{paymentMethod}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total:</span>
+                      <span className="font-medium">₱{total.toFixed(2)}</span>
+                    </div>
+                    {paymentMethod === "cash" && cashAmount && (
+                      <>
+                        <div className="flex justify-between">
+                          <span>Cash Received:</span>
+                          <span className="font-medium">₱{parseFloat(cashAmount).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-green-600">
+                          <span>Change:</span>
+                          <span className="font-medium">₱{(parseFloat(cashAmount) - total).toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmAction === "guest-tab" ? handleAddToTab : handleWalkInPayment}
+              disabled={createTransaction.isPending}
+            >
+              {createTransaction.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Confirm
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Receipt Dialog */}
+      <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="w-5 h-5" />
+              Transaction Receipt
+            </DialogTitle>
+          </DialogHeader>
+          {lastTransaction && (
+            <div className="space-y-4">
+              {/* Receipt Header */}
+              <div className="text-center border-b pb-4">
+                <h3 className="font-bold text-lg">Minima Hotel</h3>
+                <p className="text-sm text-muted-foreground">Point of Sale</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {new Date().toLocaleString()}
+                </p>
+              </div>
+
+              {/* Transaction Info */}
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Transaction #:</span>
+                  <span className="font-mono">{lastTransaction.transaction_number}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Customer:</span>
+                  <span className="font-medium">{lastTransaction.guest_name}</span>
+                </div>
+                {lastTransaction.guest_id !== "walk-in" && selectedGuest && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Room:</span>
+                    <span className="font-medium">{selectedGuest.roomId}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Payment:</span>
+                  <span className="font-medium capitalize">{lastTransaction.payment_method}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className={`font-medium ${
+                    lastTransaction.status === "completed" ? "text-green-600" : "text-orange-600"
+                  }`}>
+                    {lastTransaction.status === "completed" ? "Paid" : "Pending"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3 text-sm">Items</h4>
+                <div className="space-y-2">
+                  {lastTransaction.items.map((item: CartItem, index: number) => (
+                    <div key={index} className="flex justify-between text-sm">
+                      <div className="flex-1">
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          ₱{item.price.toFixed(2)} × {item.quantity}
+                        </p>
+                      </div>
+                      <span className="font-medium">
+                        ₱{(item.price * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="border-t pt-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal:</span>
+                  <span>₱{lastTransaction.subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tax (10%):</span>
+                  <span>₱{lastTransaction.tax.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-base border-t pt-2">
+                  <span>Total:</span>
+                  <span>₱{lastTransaction.total.toFixed(2)}</span>
+                </div>
+                {lastTransaction.cash_amount && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Cash Received:</span>
+                      <span>₱{lastTransaction.cash_amount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Change:</span>
+                      <span className="font-medium">₱{lastTransaction.change.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t pt-4 text-center text-xs text-muted-foreground">
+                <p>Thank you for your business!</p>
+                <p className="mt-1">Please keep this receipt for your records</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => window.print()}
+              className="w-full sm:w-auto"
+            >
+              <PrintIcon className="w-4 h-4 mr-2" />
+              Print Receipt
+            </Button>
+            <Button
+              onClick={() => {
+                setIsReceiptDialogOpen(false);
+                setLastTransaction(null);
+              }}
+              className="w-full sm:w-auto"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };

@@ -63,6 +63,7 @@ export interface POSProduct {
   updated_at: string;
   foodType?: FoodType;
   serviceType?: string;
+  requiresCheckedIn?: boolean; // true = only for checked-in guests, false/undefined = for all guests
 }
 
 export interface POSTransactionItem {
@@ -104,6 +105,18 @@ export interface InventoryItem {
   unit: string;
   unitCost: number;
   updatedAt: string;
+}
+
+export interface User {
+  id: string;
+  createdAt: string;
+  email: string;
+  name: string;
+  phone: string;
+  role: "manager" | "receptionist";
+  status: "active" | "inactive";
+  updatedAt: string;
+  password?: string; // Optional: for authentication (should be hashed in production)
 }
 
 export const Constants = {

@@ -26,227 +26,6 @@ export interface GuestFromBooking {
   bookingId: string;
 }
 
-// Seed default categories if none exist
-const seedDefaultCategories = async () => {
-  const categoriesRef = ref(db, "pos_categories");
-  const snapshot = await get(categoriesRef);
-  
-  if (!snapshot.exists()) {
-    await set(categoriesRef, {
-      "foods": {
-        name: "Foods",
-        icon: "utensils",
-        created_at: new Date().toISOString(),
-      },
-      "services": {
-        name: "Services",
-        icon: "concierge-bell",
-        created_at: new Date().toISOString(),
-      },
-    });
-  }
-};
-
-// Seed sample services if none exist
-const seedDefaultServices = async () => {
-  const productsRef = ref(db, "pos_products");
-  const snapshot = await get(productsRef);
-  
-  // Check if services category products exist
-  if (snapshot.exists()) {
-    const products = Object.values(snapshot.val()) as any[];
-    const hasServices = products.some(p => p.category_id === "services");
-    if (hasServices) return;
-  }
-
-  const services = {
-    "svc_laundry": {
-      name: "Laundry Service",
-      description: "Full laundry service per kg",
-      price: 150,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_dry_cleaning": {
-      name: "Dry Cleaning",
-      description: "Professional dry cleaning per item",
-      price: 250,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_ironing": {
-      name: "Ironing Service",
-      description: "Press and iron per item",
-      price: 75,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_spa_massage": {
-      name: "Spa Massage (1 hour)",
-      description: "Relaxing full body massage",
-      price: 1500,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_spa_facial": {
-      name: "Facial Treatment",
-      description: "Deep cleansing facial",
-      price: 800,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_airport_pickup": {
-      name: "Airport Pickup",
-      description: "One-way airport transfer",
-      price: 1200,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_airport_dropoff": {
-      name: "Airport Drop-off",
-      description: "One-way airport transfer",
-      price: 1200,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_car_rental": {
-      name: "Car Rental (per day)",
-      description: "Sedan with driver",
-      price: 3500,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_tour_city": {
-      name: "City Tour",
-      description: "Half-day guided city tour",
-      price: 2000,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_gym_access": {
-      name: "Gym Day Pass",
-      description: "Full day gym access",
-      price: 500,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_pool_towel": {
-      name: "Pool Towel Rental",
-      description: "Premium pool towel",
-      price: 100,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_minibar_restock": {
-      name: "Minibar Restock",
-      description: "Full minibar package",
-      price: 800,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_extra_bed": {
-      name: "Extra Bed",
-      description: "Additional bed per night",
-      price: 1000,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_late_checkout": {
-      name: "Late Checkout",
-      description: "Extend checkout until 4PM",
-      price: 500,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_early_checkin": {
-      name: "Early Check-in",
-      description: "Check-in from 8AM",
-      price: 500,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_room_upgrade": {
-      name: "Room Upgrade",
-      description: "Upgrade to next room tier",
-      price: 1500,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_babysitting": {
-      name: "Babysitting (per hour)",
-      description: "Professional childcare service",
-      price: 350,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_pet_fee": {
-      name: "Pet Accommodation",
-      description: "Pet stay fee per night",
-      price: 500,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_printing": {
-      name: "Printing Service",
-      description: "Per page printing",
-      price: 15,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    "svc_wifi_premium": {
-      name: "Premium WiFi",
-      description: "High-speed internet per day",
-      price: 200,
-      category_id: "services",
-      is_available: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  };
-
-  // Add services to existing products
-  const existingProducts = snapshot.exists() ? snapshot.val() : {};
-  await set(productsRef, { ...existingProducts, ...services });
-};
-
 export const useGuests = () => {
   return useQuery({
     queryKey: ["guests-from-bookings"],
@@ -289,9 +68,6 @@ export const usePOSCategories = () => {
   return useQuery({
     queryKey: ["pos-categories"],
     queryFn: async () => {
-      // Seed default categories if none exist
-      await seedDefaultCategories();
-      
       const categoriesRef = ref(db, "pos_categories");
       const snapshot = await get(categoriesRef);
       if (!snapshot.exists()) return [];
@@ -311,24 +87,47 @@ export const usePOSProducts = () => {
   return useQuery({
     queryKey: ["pos-products"],
     queryFn: async () => {
-      // Seed default services if none exist
-      await seedDefaultServices();
+      // Fetch menu items (food/beverages)
+      const menuRef = ref(db, "menu");
+      const menuSnapshot = await get(menuRef);
       
-      // Fetch products
-      const productsRef = ref(db, "pos_products");
-      const productsSnapshot = await get(productsRef);
+      // Fetch services
+      const servicesRef = ref(db, "pos_products");
+      const servicesSnapshot = await get(servicesRef);
       
-      if (!productsSnapshot.exists()) return [];
+      const allProducts: POSProduct[] = [];
       
-      const productsData = productsSnapshot.val();
-      const products: POSProduct[] = Object.entries(productsData)
-        .map(([id, value]) => ({
-          id,
-          ...(value as Omit<POSProduct, "id">),
-        }));
+      // Add menu items
+      if (menuSnapshot.exists()) {
+        const menuData = menuSnapshot.val();
+        Object.entries(menuData).forEach(([id, value]: [string, any]) => {
+          allProducts.push({
+            id,
+            name: value.name,
+            description: value.description || null,
+            price: value.cost || 0,
+            category_id: "foods", // All menu items go to Foods category
+            is_available: value.isAvailable !== false,
+            created_at: value.createdAt || new Date().toISOString(),
+            updated_at: value.updatedAt || new Date().toISOString(),
+            foodType: value.category?.toLowerCase() as FoodType, // Store original menu category
+          });
+        });
+      }
+      
+      // Add services
+      if (servicesSnapshot.exists()) {
+        const servicesData = servicesSnapshot.val();
+        Object.entries(servicesData).forEach(([id, value]: [string, any]) => {
+          allProducts.push({
+            id,
+            ...(value as Omit<POSProduct, "id">),
+          });
+        });
+      }
 
       // Fetch categories
-      const categoryIds = [...new Set(products.map(p => p.category_id))];
+      const categoryIds = [...new Set(allProducts.map(p => p.category_id))];
       const categoriesRef = ref(db, "pos_categories");
       const categoriesSnapshot = await get(categoriesRef);
       
@@ -342,7 +141,7 @@ export const usePOSProducts = () => {
         });
       }
 
-      return products
+      return allProducts
         .map(product => ({
           ...product,
           category: categoriesMap.get(product.category_id),
@@ -356,24 +155,47 @@ export const usePOSProductsIncludeArchived = () => {
   return useQuery({
     queryKey: ["pos-products-all"],
     queryFn: async () => {
-      // Seed default services if none exist
-      await seedDefaultServices();
+      // Fetch menu items (food/beverages) - including unavailable
+      const menuRef = ref(db, "menu");
+      const menuSnapshot = await get(menuRef);
       
-      // Fetch products (including archived)
-      const productsRef = ref(db, "pos_products");
-      const productsSnapshot = await get(productsRef);
+      // Fetch services - including archived
+      const servicesRef = ref(db, "pos_products");
+      const servicesSnapshot = await get(servicesRef);
       
-      if (!productsSnapshot.exists()) return [];
+      const allProducts: POSProduct[] = [];
       
-      const productsData = productsSnapshot.val();
-      const products: POSProduct[] = Object.entries(productsData)
-        .map(([id, value]) => ({
-          id,
-          ...(value as Omit<POSProduct, "id">),
-        }));
+      // Add menu items
+      if (menuSnapshot.exists()) {
+        const menuData = menuSnapshot.val();
+        Object.entries(menuData).forEach(([id, value]: [string, any]) => {
+          allProducts.push({
+            id,
+            name: value.name,
+            description: value.description || null,
+            price: value.cost || 0,
+            category_id: "foods",
+            is_available: value.isAvailable !== false,
+            created_at: value.createdAt || new Date().toISOString(),
+            updated_at: value.updatedAt || new Date().toISOString(),
+            foodType: value.category?.toLowerCase() as FoodType, // Store original menu category
+          });
+        });
+      }
+      
+      // Add services
+      if (servicesSnapshot.exists()) {
+        const servicesData = servicesSnapshot.val();
+        Object.entries(servicesData).forEach(([id, value]: [string, any]) => {
+          allProducts.push({
+            id,
+            ...(value as Omit<POSProduct, "id">),
+          });
+        });
+      }
 
       // Fetch categories
-      const categoryIds = [...new Set(products.map(p => p.category_id))];
+      const categoryIds = [...new Set(allProducts.map(p => p.category_id))];
       const categoriesRef = ref(db, "pos_categories");
       const categoriesSnapshot = await get(categoriesRef);
       
@@ -387,7 +209,7 @@ export const usePOSProductsIncludeArchived = () => {
         });
       }
 
-      return products
+      return allProducts
         .map(product => ({
           ...product,
           category: categoriesMap.get(product.category_id),

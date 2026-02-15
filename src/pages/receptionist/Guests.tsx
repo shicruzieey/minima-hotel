@@ -199,7 +199,7 @@ const Guests = () => {
               : "bg-gray-100 text-gray-600 border-gray-200"
             }
           >
-            {isActive ? "Active" : "Checked Out"}
+            {isActive ? "Checked In" : "Checked Out"}
           </Badge>
         </div>
         <div className="space-y-1 text-xs text-muted-foreground">
@@ -233,13 +233,13 @@ const Guests = () => {
 
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Active Bookings - Left Side */}
+        {/* Checked-In Guests - Left Side */}
         <div>
           <Card className="glass-card">
             <CardHeader className="border-b">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                Active Bookings
+                Checked-In Guests
                 <Badge variant="secondary" className="ml-auto">
                   {filteredActiveGuests.length}
                 </Badge>
@@ -252,7 +252,7 @@ const Guests = () => {
                 </div>
               ) : filteredActiveGuests.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground text-sm">
-                  {searchQuery ? "No active guests match your search" : "No active bookings"}
+                  {searchQuery ? "No checked-in guests match your search" : "No guests currently checked in"}
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[600px] overflow-y-auto">

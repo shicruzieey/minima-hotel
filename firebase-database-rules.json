@@ -1,0 +1,45 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "users": {
+      ".indexOn": ["email"],
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "bookings": {
+      ".indexOn": ["guestEmail", "status", "checkIn", "checkOut"],
+      "$bookingId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "inventory": {
+      "$itemId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "pos_categories": {
+      "$categoryId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "pos_products": {
+      "$productId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "pos_transactions": {
+      ".indexOn": ["created_at", "status"],
+      "$transactionId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

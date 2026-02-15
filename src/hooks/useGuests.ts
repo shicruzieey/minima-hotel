@@ -32,13 +32,15 @@ export const useActiveGuests = () => {
         ...(value as Omit<Booking, "id">),
       }));
       
-      // Filter for active guests - only "Checked In" status
-      const activeBookings = bookings.filter(b => {
+      // Filter for checked-in guests only - guests currently staying at the hotel
+      const checkedInBookings = bookings.filter(b => {
         const status = b.status?.toLowerCase() || "";
-        return status === "checked in" || status === "checked_in" || status === "checkedin";
+        return status === "checked in" || 
+               status === "checked_in" || 
+               status === "checkedin";
       });
       
-      return activeBookings.map(booking => ({
+      return checkedInBookings.map(booking => ({
         id: booking.guestId,
         guestId: booking.guestId,
         guestName: booking.guestName,

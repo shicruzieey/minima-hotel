@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { 
   LayoutDashboard, 
   ShoppingCart, 
@@ -6,27 +7,54 @@ import {
   LogOut,
   Users,
   Shield,
-  User
+  User,
+  Settings,
+  Receipt
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
-
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: ShoppingCart, label: "POS", path: "/pos" },
-  { icon: Users, label: "Guests", path: "/guests" },
-  { icon: Package, label: "Inventory", path: "/inventory" },
-];
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Sidebar = () => {
   const { user, logout, isManager } = useAuth();
   const navigate = useNavigate();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Force navigate even if logout fails
+      navigate("/login");
+    }
   };
+
+  // Role-based navigation items
+  const navItems = isManager ? [
+    { icon: LayoutDashboard, label: "Dashboard", path: "/manager/dashboard" },
+    { icon: Package, label: "Inventory", path: "/manager/inventory" },
+    { icon: Users, label: "Guests", path: "/guests" },
+    { icon: ShoppingCart, label: "POS", path: "/pos" },
+    { icon: Receipt, label: "Transactions", path: "/manager/transactions" },
+    { icon: Settings, label: "Settings", path: "/manager/settings" },
+  ] : [
+    { icon: LayoutDashboard, label: "Dashboard", path: "/receptionist/dashboard" },
+    { icon: ShoppingCart, label: "POS", path: "/receptionist/pos" },
+    { icon: Users, label: "Guests", path: "/receptionist/guests" },
+    { icon: Receipt, label: "Transactions", path: "/receptionist/transactions" },
+  ];
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col z-50">
@@ -105,13 +133,31 @@ const Sidebar = () => {
       {/* Bottom Section */}
       <div className="p-4 border-t border-sidebar-border space-y-1">
         <button 
-          onClick={handleLogout}
+          onClick={() => setShowLogoutDialog(true)}
           className="nav-item w-full text-gray-500 hover:text-white"
         >
           <LogOut className="w-4 h-4" />
           <span className="text-sm">Logout</span>
         </button>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to logout? You will need to login again to access the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout}>
+              Logout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 };
