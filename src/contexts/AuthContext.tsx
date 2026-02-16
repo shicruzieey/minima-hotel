@@ -26,6 +26,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Try to restore user from localStorage first (for immediate UI)
+    const storedUser = localStorage.getItem("hotel_user");
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error("Error parsing stored user:", error);
+        localStorage.removeItem("hotel_user");
+      }
+    }
+
     // Listen to Firebase Auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -43,13 +55,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             if (userEntry) {
               const [userId, userData] = userEntry as [string, User];
+              
+              // Check if user is still active
+              if (userData.status !== "active") {
+                console.log("User account is no longer active");
+                await signOut(auth);
+                setUser(null);
+                localStorage.removeItem("hotel_user");
+                setIsLoading(false);
+                return;
+              }
+              
               const userToStore = { ...userData, id: userId };
               setUser(userToStore);
               localStorage.setItem("hotel_user", JSON.stringify(userToStore));
+            } else {
+              // User not found in database
+              console.log("User not found in database");
+              await signOut(auth);
+              setUser(null);
+              localStorage.removeItem("hotel_user");
             }
+          } else {
+            // No users in database
+            console.log("No users found in database");
+            await signOut(auth);
+            setUser(null);
+            localStorage.removeItem("hotel_user");
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
+          // Don't clear user on fetch error, keep existing session
         }
       } else {
         // User is signed out
