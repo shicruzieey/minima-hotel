@@ -8,7 +8,6 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Login from "./pages/shared/Login";
 import ManagerDashboard from "./pages/manager/Dashboard";
 import ManagerInventory from "./pages/manager/Inventory";
-import ReceptionistDashboard from "./pages/receptionist/Dashboard";
 import ReceptionistPOS from "./pages/receptionist/POS";
 import ReceptionistGuests from "./pages/receptionist/Guests";
 import TransactionHistory from "./pages/shared/TransactionHistory";
@@ -33,7 +32,6 @@ const App = () => (
             <Route path="/manager/transactions" element={<ProtectedRoute requiredRole="manager"><TransactionHistory /></ProtectedRoute>} />
             
             {/* Receptionist Routes */}
-            <Route path="/receptionist/dashboard" element={<ProtectedRoute requiredRole="receptionist"><ReceptionistDashboard /></ProtectedRoute>} />
             <Route path="/receptionist/pos" element={<ProtectedRoute requiredRole="receptionist"><ReceptionistPOS /></ProtectedRoute>} />
             <Route path="/receptionist/guests" element={<ProtectedRoute requiredRole="receptionist"><ReceptionistGuests /></ProtectedRoute>} />
             <Route path="/receptionist/transactions" element={<ProtectedRoute requiredRole="receptionist"><TransactionHistory /></ProtectedRoute>} />

@@ -21,7 +21,7 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (!authLoading && isAuthenticated && user) {
-      const redirectPath = user.role === "manager" ? "/manager/dashboard" : "/receptionist/dashboard";
+      const redirectPath = user.role === "manager" ? "/manager/dashboard" : "/receptionist/pos";
       navigate(redirectPath, { replace: true });
     }
   }, [isAuthenticated, user, authLoading, navigate]);
@@ -45,7 +45,7 @@ const Login = () => {
         if (selectedRole === "manager") {
           navigate("/manager/dashboard");
         } else {
-          navigate("/receptionist/dashboard");
+          navigate("/receptionist/pos");
         }
       } else {
         toast.error("Invalid credentials or access denied");

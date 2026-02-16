@@ -48,7 +48,6 @@ const Sidebar = () => {
     { icon: ShoppingCart, label: "POS", path: "/pos" },
     { icon: Receipt, label: "Transactions", path: "/manager/transactions" },
   ] : [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/receptionist/dashboard" },
     { icon: ShoppingCart, label: "POS", path: "/receptionist/pos" },
     { icon: Users, label: "Guests", path: "/receptionist/guests" },
     { icon: Receipt, label: "Transactions", path: "/receptionist/transactions" },
