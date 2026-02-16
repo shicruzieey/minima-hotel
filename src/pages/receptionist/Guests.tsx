@@ -187,48 +187,90 @@ const Guests = () => {
     });
   };
 
-  const GuestCard = ({ guest, isActive }: { guest: GuestWithBooking; isActive: boolean }) => (
-    <Card 
-      className="cursor-pointer hover:border-primary/50 transition-colors"
-      onClick={() => handleGuestClick(guest)}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-medium text-sm">{guest.guestName}</h3>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <BedDouble className="w-3 h-3" />
-                <span>Room {guest.roomId}</span>
+  const getStatusBadge = (status: string) => {
+    const normalizedStatus = status.toLowerCase().trim();
+    
+    if (normalizedStatus === "checked-in" || normalizedStatus === "checked in") {
+      return {
+        label: "Checked In",
+        className: "bg-green-100 text-green-700 border-green-200"
+      };
+    } else if (normalizedStatus === "checked-out" || normalizedStatus === "checked out") {
+      return {
+        label: "Checked Out",
+        className: "bg-gray-100 text-gray-600 border-gray-200"
+      };
+    } else if (normalizedStatus === "paid") {
+      return {
+        label: "Paid",
+        className: "bg-blue-100 text-blue-700 border-blue-200"
+      };
+    } else if (normalizedStatus === "active") {
+      return {
+        label: "Active",
+        className: "bg-orange-100 text-orange-700 border-orange-200"
+      };
+    } else if (normalizedStatus === "pending") {
+      return {
+        label: "Pending",
+        className: "bg-yellow-100 text-yellow-700 border-yellow-200"
+      };
+    } else if (normalizedStatus === "cancelled") {
+      return {
+        label: "Cancelled",
+        className: "bg-red-100 text-red-700 border-red-200"
+      };
+    } else {
+      return {
+        label: status.charAt(0).toUpperCase() + status.slice(1),
+        className: "bg-gray-100 text-gray-600 border-gray-200"
+      };
+    }
+  };
+
+  const GuestCard = ({ guest, isActive }: { guest: GuestWithBooking; isActive: boolean }) => {
+    const statusBadge = getStatusBadge(guest.status);
+    
+    return (
+      <Card 
+        className="cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleGuestClick(guest)}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium text-sm">{guest.guestName}</h3>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <BedDouble className="w-3 h-3" />
+                  <span>Room {guest.roomId}</span>
+                </div>
               </div>
             </div>
+            <Badge 
+              variant="secondary"
+              className={statusBadge.className}
+            >
+              {statusBadge.label}
+            </Badge>
           </div>
-          <Badge 
-            variant="secondary"
-            className={isActive 
-              ? "bg-green-100 text-green-700 border-green-200" 
-              : "bg-gray-100 text-gray-600 border-gray-200"
-            }
-          >
-            {isActive ? "Checked In" : "Checked Out"}
-          </Badge>
-        </div>
-        <div className="space-y-1 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-3 h-3" />
-            <span>{formatDate(guest.checkIn)} - {formatDate(guest.checkOut)}</span>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-3 h-3" />
+              <span>{formatDate(guest.checkIn)} - {formatDate(guest.checkOut)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="w-3 h-3" />
+              <span>{guest.guestPhone || "No phone"}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Phone className="w-3 h-3" />
-            <span>{guest.guestPhone || "No phone"}</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <MainLayout title="Guests" subtitle="View guest bookings and process payments">
