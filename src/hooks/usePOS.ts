@@ -105,7 +105,7 @@ export const usePOSProducts = () => {
             id,
             name: value.name,
             description: value.description || null,
-            price: value.cost || 0,
+            price: value.price || 0, // Use 'price' field from menu
             category_id: "foods", // All menu items go to Foods category
             is_available: value.isAvailable !== false,
             created_at: value.createdAt || new Date().toISOString(),
@@ -173,7 +173,7 @@ export const usePOSProductsIncludeArchived = () => {
             id,
             name: value.name,
             description: value.description || null,
-            price: value.cost || 0,
+            price: value.price || 0, // Use 'price' field from menu
             category_id: "foods",
             is_available: value.isAvailable !== false,
             created_at: value.createdAt || new Date().toISOString(),
