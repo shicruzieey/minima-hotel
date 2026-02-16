@@ -199,6 +199,31 @@ const POS = () => {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
 
+  // Get unique food types from actual products
+  const availableFoodTypes = useMemo(() => {
+    const types = new Set<string>();
+    products?.forEach(product => {
+      if (product.foodType) {
+        types.add(product.foodType);
+      }
+    });
+    console.log("Available food types:", Array.from(types));
+    return Array.from(types);
+  }, [products]);
+
+  // Filter food type options to only show those that exist in the menu
+  // If no food types are found, show all options
+  const filteredFoodTypeOptions = useMemo(() => {
+    if (availableFoodTypes.length === 0) {
+      // No food types found, show all options
+      return foodTypeOptions;
+    }
+    const availableOptions = foodTypeOptions.filter(opt => 
+      opt.value === "all" || availableFoodTypes.includes(opt.value)
+    );
+    return availableOptions;
+  }, [availableFoodTypes]);
+
   // Check for pre-selected guest from Guests page
   useEffect(() => {
     const savedGuest = sessionStorage.getItem('selectedGuest');
@@ -726,7 +751,7 @@ const POS = () => {
           {/* Food Type Filter - Only show for Foods category */}
           {isFoodsCategory && (
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {foodTypeOptions.map((option) => {
+              {filteredFoodTypeOptions.map((option) => {
                 const Icon = option.icon;
                 return (
                   <Button
