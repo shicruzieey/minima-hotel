@@ -313,9 +313,31 @@ const TransactionHistory = () => {
     );
   };
 
-  const totalRevenue = filteredTransactions
-    .filter(t => t.status === "completed")
-    .reduce((sum, t) => sum + (t.total || 0), 0);
+  const stats = useMemo(() => {
+    const now = new Date();
+    const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    const completedTransactions = filteredTransactions.filter(t => t.status === "completed");
+    
+    // All-time revenue
+    const totalRevenue = completedTransactions.reduce((sum, t) => sum + (t.total || 0), 0);
+    
+    // Last 7 days revenue
+    const last7DaysRevenue = completedTransactions
+      .filter(t => {
+        if (!t.created_at) return false;
+        const txDate = new Date(t.created_at);
+        return txDate >= last7Days;
+      })
+      .reduce((sum, t) => sum + (t.total || 0), 0);
+    
+    return {
+      totalRevenue,
+      last7DaysRevenue,
+      completedCount: completedTransactions.length,
+      pendingCount: filteredTransactions.filter(t => t.status === "pending").length,
+    };
+  }, [filteredTransactions]);
 
   return (
     <MainLayout 
@@ -341,9 +363,7 @@ const TransactionHistory = () => {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {filteredTransactions.filter(t => t.status === "completed").length}
-              </div>
+              <div className="text-2xl font-bold">{stats.completedCount}</div>
             </CardContent>
           </Card>
 
@@ -353,9 +373,7 @@ const TransactionHistory = () => {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {filteredTransactions.filter(t => t.status === "pending").length}
-              </div>
+              <div className="text-2xl font-bold">{stats.pendingCount}</div>
             </CardContent>
           </Card>
 
@@ -365,7 +383,10 @@ const TransactionHistory = () => {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₱{totalRevenue.toLocaleString()}</div>
+              <div className="text-2xl font-bold">₱{stats.totalRevenue.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                ₱{stats.last7DaysRevenue.toLocaleString()} last 7 days
+              </p>
             </CardContent>
           </Card>
         </div>
