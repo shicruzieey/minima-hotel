@@ -71,11 +71,11 @@ export const useCheckedOutGuests = () => {
         ...(value as Omit<Booking, "id">),
       }));
       
-      // Filter for checked out guests - "Checked Out" or "Paid" status
+      // Filter for checked out guests only - "Checked Out" status (not "Paid")
       const checkedOutBookings = bookings.filter(b => {
-        const status = b.status?.toLowerCase() || "";
-        return status === "checked out" || status === "checked_out" || status === "checkedout" ||
-               status === "paid";
+        if (!b.status) return false;
+        const status = String(b.status).toLowerCase().trim();
+        return status === "checked out" || status === "checked_out" || status === "checkedout";
       });
       
       return checkedOutBookings.map(booking => ({
