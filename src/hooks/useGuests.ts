@@ -72,10 +72,13 @@ export const useCheckedOutGuests = () => {
       }));
       
       // Filter for checked out guests only - "Checked Out" status (not "Paid")
+      // Handle various formats: "Checked Out", "checked out", "checked_out", "Checked-Out", etc.
       const checkedOutBookings = bookings.filter(b => {
         if (!b.status) return false;
-        const status = String(b.status).toLowerCase().trim();
-        return status === "checked out" || status === "checked_out" || status === "checkedout";
+        const status = String(b.status).trim();
+        const normalizedStatus = status.toLowerCase().replace(/[-_\s]/g, ''); // Remove hyphens, underscores, spaces
+        
+        return normalizedStatus === "checkedout";
       });
       
       return checkedOutBookings.map(booking => ({
