@@ -148,34 +148,45 @@ const ManagerDashboard = () => {
   // Bookings by status
   const bookingsByStatus = useMemo(() => {
     const statusCounts = bookings.reduce((acc, b) => {
-      // Normalize status to lowercase and handle variations
-      const rawStatus = (b.status || "unknown").toLowerCase().trim();
+      // Get the raw status as stored in database
+      const rawStatus = (b.status || "unknown").trim();
       
-      // Map variations to standard statuses
-      let normalizedStatus = rawStatus;
-      if (rawStatus === "checked_in" || rawStatus === "checked in" || rawStatus === "checkedin") {
-        normalizedStatus = "checked-in";
-      } else if (rawStatus === "checked_out" || rawStatus === "checked out" || rawStatus === "checkedout") {
-        normalizedStatus = "checked-out";
-      } else if (rawStatus === "no_show" || rawStatus === "no show" || rawStatus === "noshow") {
-        normalizedStatus = "no-show";
+      // Normalize to lowercase for comparison
+      const lowerStatus = rawStatus.toLowerCase();
+      
+      // Map variations to standard display format
+      let displayStatus = rawStatus; // Keep original casing by default
+      
+      if (lowerStatus === "checked_in" || lowerStatus === "checked in" || lowerStatus === "checkedin") {
+        displayStatus = "Checked In";
+      } else if (lowerStatus === "checked_out" || lowerStatus === "checked out" || lowerStatus === "checkedout") {
+        displayStatus = "Checked Out";
+      } else if (lowerStatus === "no_show" || lowerStatus === "no show" || lowerStatus === "noshow" || lowerStatus === "no-show") {
+        displayStatus = "No-show";
+      } else if (lowerStatus === "cancelled") {
+        displayStatus = "Cancelled";
+      } else if (lowerStatus === "paid") {
+        displayStatus = "Paid";
+      } else if (lowerStatus === "expired") {
+        displayStatus = "Expired";
+      } else if (lowerStatus === "active") {
+        displayStatus = "Active";
+      } else if (lowerStatus === "pending") {
+        displayStatus = "Pending";
+      } else if (lowerStatus === "confirmed") {
+        displayStatus = "Confirmed";
+      } else {
+        // Capitalize first letter for unknown statuses
+        displayStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
       }
       
-      acc[normalizedStatus] = (acc[normalizedStatus] || 0) + 1;
+      acc[displayStatus] = (acc[displayStatus] || 0) + 1;
       return acc;
     }, {} as { [key: string]: number });
 
-    // Format status labels for display
-    const formatStatusLabel = (status: string): string => {
-      return status
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join('-');
-    };
-
     return Object.entries(statusCounts)
       .map(([status, count]) => ({
-        status: formatStatusLabel(status),
+        status,
         count,
       }))
       .sort((a, b) => b.count - a.count); // Sort by count descending
