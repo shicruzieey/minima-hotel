@@ -33,6 +33,13 @@ const Inventory = () => {
   const allCategories = ["All", ...categories];
   const statusFilters = ["All", "In Stock", "Low Stock", "Critical", "Out of Stock"];
 
+  const getStockStatus = (currentStock: number, restockThreshold: number) => {
+    if (!currentStock || currentStock === 0) return "out";
+    if (currentStock < restockThreshold) return "critical";
+    if (currentStock < restockThreshold * 1.5) return "low";
+    return "normal";
+  };
+
   const filteredItems = inventoryItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = activeCategory === "All" || item.category === activeCategory;
@@ -54,13 +61,6 @@ const Inventory = () => {
     
     return matchesSearch && matchesCategory && matchesStatus;
   });
-
-  const getStockStatus = (currentStock: number, restockThreshold: number) => {
-    if (!currentStock || currentStock === 0) return "out";
-    if (currentStock < restockThreshold) return "critical";
-    if (currentStock < restockThreshold * 1.5) return "low";
-    return "normal";
-  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
