@@ -25,16 +25,34 @@ import { useInventory, useInventoryStats } from "@/hooks/useInventory";
 const Inventory = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
   
   const { data: inventoryItems = [], isLoading } = useInventory();
   const { totalItems, lowStockCount, categories } = useInventoryStats();
 
   const allCategories = ["All", ...categories];
+  const statusFilters = ["All", "In Stock", "Low Stock", "Critical", "Out of Stock"];
 
   const filteredItems = inventoryItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = activeCategory === "All" || item.category === activeCategory;
-    return matchesSearch && matchesCategory;
+    
+    // Status filter logic
+    let matchesStatus = true;
+    if (statusFilter !== "All") {
+      const stockStatus = getStockStatus(item.currentStock, item.restockThreshold);
+      if (statusFilter === "In Stock") {
+        matchesStatus = stockStatus === "normal";
+      } else if (statusFilter === "Low Stock") {
+        matchesStatus = stockStatus === "low";
+      } else if (statusFilter === "Critical") {
+        matchesStatus = stockStatus === "critical";
+      } else if (statusFilter === "Out of Stock") {
+        matchesStatus = stockStatus === "out";
+      }
+    }
+    
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
   const getStockStatus = (currentStock: number, restockThreshold: number) => {
@@ -123,31 +141,53 @@ const Inventory = () => {
       {/* Filters and Search */}
       <Card className="glass-card mb-6">
         <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-              {allCategories.map((cat) => (
-                <Button
-                  key={cat}
-                  variant={activeCategory === cat ? "default" : "secondary"}
-                  size="sm"
-                  onClick={() => setActiveCategory(cat)}
-                  className={activeCategory === cat ? "bg-primary text-primary-foreground" : ""}
-                >
-                  {cat}
-                </Button>
-              ))}
-            </div>
-            <div className="flex gap-3 w-full md:w-auto">
-              <div className="relative flex-1 md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search inventory..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+          <div className="flex flex-col gap-4">
+            {/* Category Filters */}
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Category</p>
+                <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+                  {allCategories.map((cat) => (
+                    <Button
+                      key={cat}
+                      variant={activeCategory === cat ? "default" : "secondary"}
+                      size="sm"
+                      onClick={() => setActiveCategory(cat)}
+                      className={activeCategory === cat ? "bg-primary text-primary-foreground" : ""}
+                    >
+                      {cat}
+                    </Button>
+                  ))}
+                </div>
               </div>
-
+              <div className="flex gap-3 w-full md:w-auto">
+                <div className="relative flex-1 md:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search inventory..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Status Filters */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Status</p>
+              <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+                {statusFilters.map((status) => (
+                  <Button
+                    key={status}
+                    variant={statusFilter === status ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter(status)}
+                  >
+                    {status}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </CardContent>
