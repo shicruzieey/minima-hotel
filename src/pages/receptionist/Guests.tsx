@@ -40,7 +40,9 @@ import {
 import { toast } from "sonner";
 import { 
   useActiveGuests, 
-  useCheckedOutGuests, 
+  useCheckedOutGuests,
+  usePaidGuests,
+  useActiveBookings,
   useGuestTransactions,
   useGuestTotalSpent,
   GuestWithBooking 
@@ -62,6 +64,8 @@ const Guests = () => {
 
   const { data: activeGuests = [], isLoading: activeLoading } = useActiveGuests();
   const { data: checkedOutGuests = [], isLoading: checkedOutLoading } = useCheckedOutGuests();
+  const { data: paidGuests = [], isLoading: paidLoading } = usePaidGuests();
+  const { data: activeBookings = [], isLoading: activeBookingsLoading } = useActiveBookings();
   const { data: transactions = [], isLoading: transactionsLoading } = useGuestTransactions(selectedGuest?.guestId || null);
   const { totalSpent, transactionCount, pendingTotal, pendingCount } = useGuestTotalSpent(selectedGuest?.guestId || null);
   const payTransaction = usePayTransaction();
@@ -73,6 +77,16 @@ const Guests = () => {
   );
 
   const filteredCheckedOutGuests = checkedOutGuests.filter(guest =>
+    guest.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    guest.roomId.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredPaidGuests = paidGuests.filter(guest =>
+    guest.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    guest.roomId.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredActiveBookings = activeBookings.filter(guest =>
     guest.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     guest.roomId.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -232,7 +246,7 @@ const Guests = () => {
       </div>
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Checked-In Guests - Left Side */}
         <div>
           <Card className="glass-card">
@@ -289,6 +303,73 @@ const Guests = () => {
               ) : (
                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
                   {filteredCheckedOutGuests.map((guest) => (
+                    <GuestCard key={guest.bookingId} guest={guest} isActive={false} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Second Row - Paid and Active Bookings */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Paid Guests - Left Side */}
+        <div>
+          <Card className="glass-card">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                Paid
+                <Badge variant="secondary" className="ml-auto">
+                  {filteredPaidGuests.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              {paidLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredPaidGuests.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground text-sm">
+                  {searchQuery ? "No paid guests match your search" : "No paid guests"}
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                  {filteredPaidGuests.map((guest) => (
+                    <GuestCard key={guest.bookingId} guest={guest} isActive={false} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Active Bookings - Right Side */}
+        <div>
+          <Card className="glass-card">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="w-2 h-2 rounded-full bg-orange-500" />
+                Active
+                <Badge variant="secondary" className="ml-auto">
+                  {filteredActiveBookings.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              {activeBookingsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredActiveBookings.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground text-sm">
+                  {searchQuery ? "No active bookings match your search" : "No active bookings"}
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                  {filteredActiveBookings.map((guest) => (
                     <GuestCard key={guest.bookingId} guest={guest} isActive={false} />
                   ))}
                 </div>

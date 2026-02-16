@@ -98,6 +98,86 @@ export const useCheckedOutGuests = () => {
   });
 };
 
+export const usePaidGuests = () => {
+  return useQuery({
+    queryKey: ["paid-guests"],
+    queryFn: async () => {
+      const bookingsRef = ref(db, "bookings");
+      const snapshot = await get(bookingsRef);
+      if (!snapshot.exists()) return [];
+      
+      const data = snapshot.val();
+      const bookings: Booking[] = Object.entries(data).map(([id, value]) => ({
+        id,
+        ...(value as Omit<Booking, "id">),
+      }));
+      
+      // Filter for paid guests only - exact status "paid"
+      const paidBookings = bookings.filter(b => {
+        if (!b.status) return false;
+        const status = String(b.status).trim().toLowerCase();
+        return status === "paid";
+      });
+      
+      return paidBookings.map(booking => ({
+        id: booking.guestId,
+        guestId: booking.guestId,
+        guestName: booking.guestName,
+        guestEmail: booking.guestEmail,
+        guestPhone: booking.guestPhone,
+        roomId: booking.roomId,
+        roomType: booking.roomType,
+        bookingId: booking.id,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        status: booking.status,
+        totalPrice: booking.totalPrice,
+      })).sort((a, b) => 
+        new Date(b.checkOut).getTime() - new Date(a.checkOut).getTime()
+      ) as GuestWithBooking[];
+    },
+  });
+};
+
+export const useActiveBookings = () => {
+  return useQuery({
+    queryKey: ["active-bookings"],
+    queryFn: async () => {
+      const bookingsRef = ref(db, "bookings");
+      const snapshot = await get(bookingsRef);
+      if (!snapshot.exists()) return [];
+      
+      const data = snapshot.val();
+      const bookings: Booking[] = Object.entries(data).map(([id, value]) => ({
+        id,
+        ...(value as Omit<Booking, "id">),
+      }));
+      
+      // Filter for active bookings only - exact status "active"
+      const activeBookings = bookings.filter(b => {
+        if (!b.status) return false;
+        const status = String(b.status).trim().toLowerCase();
+        return status === "active";
+      });
+      
+      return activeBookings.map(booking => ({
+        id: booking.guestId,
+        guestId: booking.guestId,
+        guestName: booking.guestName,
+        guestEmail: booking.guestEmail,
+        guestPhone: booking.guestPhone,
+        roomId: booking.roomId,
+        roomType: booking.roomType,
+        bookingId: booking.id,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        status: booking.status,
+        totalPrice: booking.totalPrice,
+      })).sort((a, b) => a.guestName.localeCompare(b.guestName)) as GuestWithBooking[];
+    },
+  });
+};
+
 export interface TransactionWithItems extends POSTransaction {
   items?: {
     product_id: string;
