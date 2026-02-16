@@ -394,8 +394,9 @@ const TransactionHistory = () => {
         {/* Filters */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
+            <div className="flex flex-col gap-4">
+              {/* Search Bar */}
+              <div className="relative w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by transaction number or guest name..."
@@ -404,35 +405,40 @@ const TransactionHistory = () => {
                   className="pl-10"
                 />
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant={statusFilter === "all" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter("all")}
-                >
-                  All
-                </Button>
-                <Button
-                  variant={statusFilter === "completed" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter("completed")}
-                >
-                  Completed
-                </Button>
-                <Button
-                  variant={statusFilter === "pending" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter("pending")}
-                >
-                  Pending
-                </Button>
-                <Button
-                  variant={statusFilter === "voided" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter("voided")}
-                >
-                  Voided
-                </Button>
+              
+              {/* Status Filters */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Status</p>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  <Button
+                    variant={statusFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={statusFilter === "completed" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter("completed")}
+                  >
+                    Completed
+                  </Button>
+                  <Button
+                    variant={statusFilter === "pending" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter("pending")}
+                  >
+                    Pending
+                  </Button>
+                  <Button
+                    variant={statusFilter === "voided" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setStatusFilter("voided")}
+                  >
+                    Voided
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>

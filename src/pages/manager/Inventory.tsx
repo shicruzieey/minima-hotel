@@ -142,41 +142,38 @@ const Inventory = () => {
       <Card className="glass-card mb-6">
         <CardContent className="p-4">
           <div className="flex flex-col gap-4">
+            {/* Search Bar */}
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search inventory..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
             {/* Category Filters */}
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">Category</p>
-                <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-                  {allCategories.map((cat) => (
-                    <Button
-                      key={cat}
-                      variant={activeCategory === cat ? "default" : "secondary"}
-                      size="sm"
-                      onClick={() => setActiveCategory(cat)}
-                      className={activeCategory === cat ? "bg-primary text-primary-foreground" : ""}
-                    >
-                      {cat}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-3 w-full md:w-auto">
-                <div className="relative flex-1 md:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search inventory..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Category</p>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {allCategories.map((cat) => (
+                  <Button
+                    key={cat}
+                    variant={activeCategory === cat ? "default" : "secondary"}
+                    size="sm"
+                    onClick={() => setActiveCategory(cat)}
+                  >
+                    {cat}
+                  </Button>
+                ))}
               </div>
             </div>
             
             {/* Status Filters */}
             <div>
               <p className="text-xs text-muted-foreground mb-2">Status</p>
-              <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+              <div className="flex gap-2 overflow-x-auto pb-2">
                 {statusFilters.map((status) => (
                   <Button
                     key={status}
