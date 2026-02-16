@@ -6,13 +6,17 @@ import { useQuery } from "@tanstack/react-query";
 import { ref, get } from "firebase/database";
 import { db } from "@/integrations/firebase/client";
 import { usePOSTransactions } from "@/hooks/usePOS";
+import { useActiveGuests } from "@/hooks/useGuests";
 import { useMemo } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const ManagerDashboard = () => {
   const { user } = useAuth();
   
-  // Fetch all bookings
+  // Fetch checked-in guests using the dedicated hook
+  const { data: checkedInGuests = [], isLoading: guestsLoading } = useActiveGuests();
+  
+  // Fetch all bookings for status breakdown
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
     queryKey: ["all-bookings"],
     queryFn: async () => {
@@ -78,11 +82,8 @@ const ManagerDashboard = () => {
       })
       .reduce((sum, t) => sum + (t.total || 0), 0);
 
-    // Checked-in guests (currently staying)
-    const checkedInGuests = bookings.filter(b => {
-      const status = b.status?.toLowerCase() || "";
-      return status === "checked in" || status === "checked_in" || status === "checkedin";
-    }).length;
+    // Checked-in guests count (from useActiveGuests hook)
+    const checkedInGuestsCount = checkedInGuests.length;
 
     // POS transactions count (completed, last 7 days)
     const posSalesCount = transactions.filter(t => {
@@ -104,12 +105,12 @@ const ManagerDashboard = () => {
 
     return {
       totalRevenue,
-      checkedInGuests,
+      checkedInGuests: checkedInGuestsCount,
       posSalesCount,
       inventoryCount,
       lowStockCount,
     };
-  }, [bookings, transactions, inventory]);
+  }, [checkedInGuests, transactions, inventory]);
 
   // Revenue by day (last 7 days)
   const revenueByDay = useMemo(() => {
@@ -156,7 +157,7 @@ const ManagerDashboard = () => {
     }));
   }, [bookings]);
 
-  const isLoading = bookingsLoading || inventoryLoading || transactionsLoading;
+  const isLoading = guestsLoading || bookingsLoading || inventoryLoading || transactionsLoading;
 
   return (
     <MainLayout 
