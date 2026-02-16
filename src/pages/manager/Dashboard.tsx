@@ -9,9 +9,11 @@ import { usePOSTransactions } from "@/hooks/usePOS";
 import { useActiveGuests } from "@/hooks/useGuests";
 import { useMemo } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { useNavigate } from "react-router-dom";
 
 const ManagerDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   // Fetch checked-in guests using the dedicated hook
   const { data: checkedInGuests = [], isLoading: guestsLoading } = useActiveGuests();
@@ -167,7 +169,10 @@ const ManagerDashboard = () => {
       <div className="space-y-6">
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate("/manager/transactions")}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -184,7 +189,10 @@ const ManagerDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate("/guests")}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Checked-In Guests</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -201,7 +209,10 @@ const ManagerDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate("/pos")}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">POS Transactions</CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -218,7 +229,10 @@ const ManagerDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate("/manager/inventory")}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Inventory Items</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
