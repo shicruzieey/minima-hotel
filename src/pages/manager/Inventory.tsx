@@ -17,9 +17,9 @@ import {
   Package, 
   AlertTriangle,
   TrendingDown,
-  Loader2
+  Loader2,
+  PackageX
 } from "lucide-react";
-import StatCard from "@/components/dashboard/StatCard";
 import { useInventory, useInventoryStats } from "@/hooks/useInventory";
 
 const Inventory = () => {
@@ -60,29 +60,64 @@ const Inventory = () => {
 
   return (
     <MainLayout title="Inventory Management" subtitle="Track and manage hotel supplies">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <StatCard
-          title="Total Items"
-          value={isLoading ? "..." : totalItems}
-          change={`${categories.length} categories`}
-          icon={Package}
-        />
-        <StatCard
-          title="Low Stock Alerts"
-          value={isLoading ? "..." : lowStockCount}
-          change="Needs attention"
-          changeType={lowStockCount > 0 ? "negative" : "positive"}
-          icon={AlertTriangle}
-          iconColor="bg-destructive/10 text-destructive"
-        />
-        <StatCard
-          title="Reorder Pending"
-          value={lowStockCount}
-          change="Below threshold"
-          icon={TrendingDown}
-          iconColor="bg-warning/10 text-warning"
-        />
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{totalItems}</div>
+                <p className="text-xs text-muted-foreground">{categories.length} categories</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Low Stock Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{lowStockCount}</div>
+                <p className="text-xs text-muted-foreground">
+                  {lowStockCount > 0 ? (
+                    <span className="text-orange-600 font-medium">Needs attention</span>
+                  ) : (
+                    "All items in stock"
+                  )}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Reorder Pending</CardTitle>
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{lowStockCount}</div>
+                <p className="text-xs text-muted-foreground">Below threshold</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters and Search */}
