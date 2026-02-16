@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/currency";
 import {
   Table,
   TableBody,
@@ -59,6 +60,7 @@ interface TransactionWithItems {
 const TransactionHistory = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TransactionStatus>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionWithItems | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -116,6 +118,24 @@ const TransactionHistory = () => {
       return matchesSearch && matchesStatus;
     });
   }, [transactionsWithItems, searchQuery, statusFilter]);
+
+  // Pagination
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (status: TransactionStatus) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
+  };
 
   const handleViewDetails = (transaction: TransactionWithItems) => {
     setSelectedTransaction(transaction);
@@ -383,9 +403,9 @@ const TransactionHistory = () => {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₱{stats.totalRevenue.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                ₱{stats.last7DaysRevenue.toLocaleString()} last 7 days
+                {formatCurrency(stats.last7DaysRevenue)} last 7 days
               </p>
             </CardContent>
           </Card>
@@ -401,7 +421,7 @@ const TransactionHistory = () => {
                 <Input
                   placeholder="Search by transaction number or guest name..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-10"
                 />
               </div>
@@ -413,28 +433,28 @@ const TransactionHistory = () => {
                   <Button
                     variant={statusFilter === "all" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setStatusFilter("all")}
+                    onClick={() => handleStatusFilterChange("all")}
                   >
                     All
                   </Button>
                   <Button
                     variant={statusFilter === "completed" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setStatusFilter("completed")}
+                    onClick={() => handleStatusFilterChange("completed")}
                   >
                     Completed
                   </Button>
                   <Button
                     variant={statusFilter === "pending" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setStatusFilter("pending")}
+                    onClick={() => handleStatusFilterChange("pending")}
                   >
                     Pending
                   </Button>
                   <Button
                     variant={statusFilter === "voided" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setStatusFilter("voided")}
+                    onClick={() => handleStatusFilterChange("voided")}
                   >
                     Voided
                   </Button>
@@ -461,57 +481,99 @@ const TransactionHistory = () => {
                   : "No transactions found"}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Transaction #</TableHead>
-                      <TableHead>Date & Time</TableHead>
-                      <TableHead>Guest</TableHead>
-                      <TableHead>Payment</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTransactions.map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell className="font-mono text-sm">
-                          {transaction.transaction_number}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatDate(transaction.created_at)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm">{transaction.guest_name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm capitalize">
-                          {transaction.payment_method}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(transaction.status)}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          ₱{transaction.total?.toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(transaction)}
-                          >
-                            View
-                          </Button>
-                        </TableCell>
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Transaction #</TableHead>
+                        <TableHead>Date & Time</TableHead>
+                        <TableHead>Guest</TableHead>
+                        <TableHead>Payment</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead></TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedTransactions.map((transaction) => (
+                        <TableRow key={transaction.id}>
+                          <TableCell className="font-mono text-sm">
+                            {transaction.transaction_number}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatDate(transaction.created_at)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm">{transaction.guest_name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm capitalize">
+                            {transaction.payment_method}
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(transaction.status)}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(transaction.total || 0)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDetails(transaction)}
+                            >
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} transactions
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                          <Button
+                            key={page}
+                            variant={currentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -570,10 +632,10 @@ const TransactionHistory = () => {
                       <div>
                         <p className="font-medium">{item.product_name}</p>
                         <p className="text-sm text-muted-foreground">
-                          ₱{item.unit_price.toFixed(2)} × {item.quantity}
+                          {formatCurrency(item.unit_price)} × {item.quantity}
                         </p>
                       </div>
-                      <p className="font-medium">₱{item.total_price.toFixed(2)}</p>
+                      <p className="font-medium">{formatCurrency(item.total_price)}</p>
                     </div>
                   ))}
                 </div>
@@ -583,15 +645,15 @@ const TransactionHistory = () => {
               <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>₱{selectedTransaction.subtotal?.toFixed(2)}</span>
+                  <span>{formatCurrency(selectedTransaction.subtotal || 0)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Tax (10%)</span>
-                  <span>₱{selectedTransaction.tax?.toFixed(2)}</span>
+                  <span>{formatCurrency(selectedTransaction.tax || 0)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Total</span>
-                  <span>₱{selectedTransaction.total?.toFixed(2)}</span>
+                  <span>{formatCurrency(selectedTransaction.total || 0)}</span>
                 </div>
               </div>
             </div>

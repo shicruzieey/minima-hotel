@@ -2,7 +2,7 @@
 
 export type BookingStatus = "pending" | "confirmed" | "checked_in" | "checked_out" | "cancelled" | "paid";
 export type TransactionStatus = "pending" | "completed" | "refunded" | "cancelled" | "voided";
-export type FoodType = "breakfast" | "lunch" | "snack" | "dinner";
+export type FoodType = "breakfast" | "lunch" | "snack" | "dinner" | "appetizer" | "beverage" | "dessert" | "main-course";
 
 // Booking structure from your Firebase
 export interface Booking {
@@ -64,6 +64,7 @@ export interface POSProduct {
   foodType?: FoodType;
   serviceType?: string;
   requiresCheckedIn?: boolean; // true = only for checked-in guests, false/undefined = for all guests
+  imageUrl?: string | null;
 }
 
 export interface POSTransactionItem {

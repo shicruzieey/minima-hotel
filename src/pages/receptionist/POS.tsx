@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatCurrency } from "@/lib/currency";
 import {
   Dialog,
   DialogContent,
@@ -104,13 +105,14 @@ const getCategoryIcon = (categoryName: string) => {
   return categoryIcons.default;
 };
 
-type FoodType = "all" | "breakfast" | "lunch" | "snack" | "dinner" | "appetizer" | "beverage" | "dessert";
+type FoodType = "all" | "breakfast" | "lunch" | "snack" | "dinner" | "appetizer" | "beverage" | "dessert" | "main-course";
 type ServiceType = "all" | "laundry" | "spa" | "transport" | "room" | "other";
 
 const foodTypeOptions: { value: FoodType; label: string; icon: React.ElementType }[] = [
   { value: "all", label: "All", icon: Package },
   { value: "breakfast", label: "Breakfast", icon: Sun },
   { value: "lunch", label: "Lunch", icon: Sunset },
+  { value: "main-course", label: "Main Course", icon: Utensils },
   { value: "snack", label: "Snack", icon: Cookie },
   { value: "dinner", label: "Dinner", icon: Moon },
   { value: "appetizer", label: "Appetizer", icon: UtensilsCrossed },
@@ -274,10 +276,10 @@ const POS = () => {
       return products || [];
     }
     
-    // When showing archived, only show archived products. Otherwise, only show active products.
+    // When showing archived, only show archived products. Otherwise, show ALL products (active and inactive)
     const productsToFilter = showArchived && isManager 
       ? allProducts?.filter(p => !p.is_available) 
-      : products?.filter(p => p.is_available);
+      : allProducts; // Show all products, we'll handle inactive state in the UI
     
     return productsToFilter?.filter(
       (p) => {
@@ -300,9 +302,9 @@ const POS = () => {
   }, [products, allProducts, activeCategory, activeFoodType, activeServiceType, searchQuery, isFoodsCategory, isServicesCategory, showArchived, isManager]);
 
   const addToCart = (product: ProductWithCategory) => {
-    // Prevent adding archived products to cart
+    // Prevent adding inactive/unavailable products to cart
     if (!product.is_available) {
-      toast.error("This service is archived and cannot be added to cart");
+      toast.error("This item is currently unavailable");
       return;
     }
 
@@ -571,11 +573,16 @@ const POS = () => {
 
   const handleSaveProduct = async (data: ProductFormData) => {
     try {
+      // Note: Image upload would need to be handled here
+      // For now, we'll just pass the imageUrl if it exists
+      // In a real implementation, you would upload data.imageFile to your storage service
+      // and get back the imageUrl before saving
+      
       if (data.id) {
         await updateProduct.mutateAsync({
           id: data.id,
           name: data.name,
-          description: data.description,
+          description: null,
           price: data.price,
           category_id: data.category_id,
           is_available: data.is_available,
@@ -590,7 +597,7 @@ const POS = () => {
       } else {
         await createProduct.mutateAsync({
           name: data.name,
-          description: data.description,
+          description: null,
           price: data.price,
           category_id: data.category_id,
           is_available: data.is_available,
@@ -861,20 +868,22 @@ const POS = () => {
                 )}
                 {filteredProducts.map((product) => {
                 const ProductIcon = getProductIcon(product.name);
+                const isInactive = !product.is_available;
+                const hasImage = product.imageUrl && product.imageUrl.trim() !== '';
                 return (
                   <Card
                     key={product.id}
                     className={`transition-colors duration-200 relative group ${
-                      !product.is_available 
-                        ? "opacity-60 bg-gray-50 cursor-not-allowed" 
-                        : "cursor-pointer hover:border-gray-400"
+                      isInactive
+                        ? "opacity-50 bg-gray-100 cursor-not-allowed border-gray-300" 
+                        : "cursor-pointer hover:border-gray-400 hover:shadow-sm"
                     }`}
-                    onClick={() => product.is_available && addToCart(product)}
+                    onClick={() => !isInactive && addToCart(product)}
                   >
-                    {!product.is_available && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/5 rounded-lg pointer-events-none">
-                        <span className="text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded">
-                          Archived
+                    {isInactive && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-500/10 rounded-lg pointer-events-none">
+                        <span className="text-xs font-semibold text-gray-700 bg-white/90 px-3 py-1 rounded shadow-sm">
+                          Unavailable
                         </span>
                       </div>
                     )}
@@ -889,12 +898,41 @@ const POS = () => {
                       </Button>
                     )}
                     <CardContent className="p-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-sm mb-2 flex items-center justify-center mx-auto">
-                        <ProductIcon className="w-5 h-5 text-gray-500" />
-                      </div>
-                      <h3 className="font-medium text-xs text-black text-center line-clamp-2">{product.name}</h3>
-                      <p className="text-sm font-medium text-black mt-1 text-center">
-                        ₱{Number(product.price).toFixed(0)}
+                      {hasImage ? (
+                        <div className="w-full h-20 rounded-sm mb-2 overflow-hidden bg-gray-100">
+                          <img 
+                            src={product.imageUrl!} 
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to icon if image fails to load
+                              e.currentTarget.style.display = 'none';
+                              const iconContainer = e.currentTarget.nextElementSibling;
+                              if (iconContainer) {
+                                (iconContainer as HTMLElement).style.display = 'flex';
+                              }
+                            }}
+                          />
+                          <div className={`w-full h-full hidden items-center justify-center ${
+                            isInactive ? "bg-gray-200" : "bg-gray-100"
+                          }`}>
+                            <ProductIcon className={`w-5 h-5 ${isInactive ? "text-gray-400" : "text-gray-500"}`} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`w-10 h-10 rounded-sm mb-2 flex items-center justify-center mx-auto ${
+                          isInactive ? "bg-gray-200" : "bg-gray-100"
+                        }`}>
+                          <ProductIcon className={`w-5 h-5 ${isInactive ? "text-gray-400" : "text-gray-500"}`} />
+                        </div>
+                      )}
+                      <h3 className={`font-medium text-xs text-center line-clamp-2 ${
+                        isInactive ? "text-gray-500" : "text-black"
+                      }`}>{product.name}</h3>
+                      <p className={`text-sm font-medium mt-1 text-center ${
+                        isInactive ? "text-gray-400" : "text-black"
+                      }`}>
+                        {formatCurrency(Number(product.price))}
                       </p>
                     </CardContent>
                   </Card>
@@ -976,7 +1014,7 @@ const POS = () => {
                         {item.name}
                       </p>
                       <p className="text-xs text-gray-500">
-                        ₱{item.price.toFixed(2)} × {item.quantity} = ₱{(item.price * item.quantity).toFixed(2)}
+                        {formatCurrency(item.price)} × {item.quantity} = {formatCurrency(item.price * item.quantity)}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 ml-2">
@@ -1068,21 +1106,21 @@ const POS = () => {
             <div className="border-t border-gray-200 pt-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Subtotal</span>
-                <span className="font-medium">₱{subtotal.toFixed(2)}</span>
+                <span className="font-medium">{formatCurrency(subtotal)}</span>
               </div>
               {!selectedGuest && discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Discount ({appliedDiscount?.code})</span>
-                  <span>-₱{discountAmount.toFixed(2)}</span>
+                  <span>-{formatCurrency(discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Tax (10%)</span>
-                <span className="font-medium">₱{(selectedGuest ? subtotal * 0.1 : tax).toFixed(2)}</span>
+                <span className="font-medium">{formatCurrency(selectedGuest ? subtotal * 0.1 : tax)}</span>
               </div>
               <div className="flex justify-between text-base font-medium pt-2 border-t border-gray-200">
                 <span>Total</span>
-                <span>₱{(selectedGuest ? subtotal + (subtotal * 0.1) : total).toFixed(2)}</span>
+                <span>{formatCurrency(selectedGuest ? subtotal + (subtotal * 0.1) : total)}</span>
               </div>
             </div>
 
@@ -1192,7 +1230,7 @@ const POS = () => {
             <div className="space-y-2">
               <Label htmlFor="total">Total Amount</Label>
               <div className="text-2xl font-bold text-primary">
-                ₱{total.toFixed(2)}
+                {formatCurrency(total)}
               </div>
             </div>
             <div className="space-y-2">
@@ -1209,12 +1247,12 @@ const POS = () => {
               />
               {cashAmount && parseFloat(cashAmount) >= total && (
                 <p className="text-sm text-green-600">
-                  Change: ₱{(parseFloat(cashAmount) - total).toFixed(2)}
+                  Change: {formatCurrency(parseFloat(cashAmount) - total)}
                 </p>
               )}
               {cashAmount && parseFloat(cashAmount) < total && (
                 <p className="text-sm text-destructive">
-                  Insufficient amount (need ₱{(total - parseFloat(cashAmount)).toFixed(2)} more)
+                  Insufficient amount (need {formatCurrency(total - parseFloat(cashAmount))} more)
                 </p>
               )}
             </div>

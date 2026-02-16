@@ -111,6 +111,7 @@ export const usePOSProducts = () => {
             created_at: value.createdAt || new Date().toISOString(),
             updated_at: value.updatedAt || new Date().toISOString(),
             foodType: value.category?.toLowerCase() as FoodType, // Store original menu category
+            imageUrl: value.imageUrl || null, // Include image URL
           });
         });
       }
@@ -179,6 +180,7 @@ export const usePOSProductsIncludeArchived = () => {
             created_at: value.createdAt || new Date().toISOString(),
             updated_at: value.updatedAt || new Date().toISOString(),
             foodType: value.category?.toLowerCase() as FoodType, // Store original menu category
+            imageUrl: value.imageUrl || null, // Include image URL
           });
         });
       }

@@ -1,6 +1,6 @@
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Users, DollarSign, Package, Loader2, TrendingUp } from "lucide-react";
+import { BarChart3, Users, DollarSign, Loader2, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { ref, get } from "firebase/database";
@@ -8,6 +8,7 @@ import { db } from "@/integrations/firebase/client";
 import { usePOSTransactions } from "@/hooks/usePOS";
 import { useActiveGuests } from "@/hooks/useGuests";
 import { useMemo } from "react";
+import { formatCurrency } from "@/lib/currency";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useNavigate } from "react-router-dom";
 
@@ -192,7 +193,7 @@ const ManagerDashboard = () => {
       .sort((a, b) => b.count - a.count); // Sort by count descending
   }, [bookings]);
 
-  const isLoading = guestsLoading || bookingsLoading || inventoryLoading || transactionsLoading;
+  const isLoading = guestsLoading || bookingsLoading || transactionsLoading;
 
   return (
     <MainLayout 
@@ -215,7 +216,7 @@ const ManagerDashboard = () => {
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               ) : (
                 <>
-                  <div className="text-2xl font-bold">₱{stats.totalRevenue.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
                   <p className="text-xs text-muted-foreground">Last 7 days</p>
                 </>
               )}
@@ -257,32 +258,6 @@ const ManagerDashboard = () => {
                 <>
                   <div className="text-2xl font-bold">{stats.posSalesCount}</div>
                   <p className="text-xs text-muted-foreground">Last 7 days</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate("/manager/inventory")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Inventory Items</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">{stats.inventoryCount}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {stats.lowStockCount > 0 ? (
-                      <span className="text-orange-600 font-medium">{stats.lowStockCount} low stock items</span>
-                    ) : (
-                      "All items in stock"
-                    )}
-                  </p>
                 </>
               )}
             </CardContent>

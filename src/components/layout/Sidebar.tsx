@@ -3,7 +3,6 @@ import { useState } from "react";
 import { 
   LayoutDashboard, 
   ShoppingCart, 
-  Package, 
   LogOut,
   Users,
   Shield,
@@ -43,7 +42,6 @@ const Sidebar = () => {
   // Role-based navigation items
   const navItems = isManager ? [
     { icon: LayoutDashboard, label: "Dashboard", path: "/manager/dashboard" },
-    { icon: Package, label: "Inventory", path: "/manager/inventory" },
     { icon: Users, label: "Guests", path: "/guests" },
     { icon: ShoppingCart, label: "POS", path: "/pos" },
     { icon: Receipt, label: "Transactions", path: "/manager/transactions" },

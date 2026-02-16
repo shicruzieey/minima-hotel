@@ -8,9 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload, X } from "lucide-react";
 import { ProductWithCategory } from "@/hooks/usePOS";
 
 interface ProductDialogProps {
@@ -24,11 +23,12 @@ interface ProductDialogProps {
 export interface ProductFormData {
   id?: string;
   name: string;
-  description: string;
-  price: number;
+  price: number | string;
   category_id: string;
   is_available: boolean;
   serviceType?: string;
+  imageUrl?: string | null;
+  imageFile?: File | null;
 }
 
 const SERVICE_TYPES = [
@@ -48,12 +48,14 @@ export const ProductDialog = ({
 }: ProductDialogProps) => {
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
-    description: "",
     price: 0,
     category_id: "services",
     is_available: true,
     serviceType: "other",
+    imageUrl: null,
+    imageFile: null,
   });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const isEditing = !!product;
 
@@ -62,32 +64,71 @@ export const ProductDialog = ({
       setFormData({
         id: product.id,
         name: product.name,
-        description: product.description || "",
-        price: product.price,
+        price: Math.round(product.price), // Convert to whole number
         category_id: "services",
         is_available: product.is_available,
         serviceType: product.serviceType || "other",
+        imageUrl: product.imageUrl || null,
+        imageFile: null,
       });
+      setImagePreview(product.imageUrl || null);
     } else {
       setFormData({
         name: "",
-        description: "",
         price: 0,
         category_id: "services",
         is_available: true,
         serviceType: "other",
+        imageUrl: null,
+        imageFile: null,
       });
+      setImagePreview(null);
     }
   }, [product, open]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB');
+        return;
+      }
+
+      setFormData({ ...formData, imageFile: file });
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData({ ...formData, imageFile: null, imageUrl: null });
+    setImagePreview(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name.trim()) return;
-    if (formData.price < 0) return;
+    const priceValue = typeof formData.price === 'string' ? parseInt(formData.price) || 0 : formData.price;
+    if (priceValue < 0) return;
     if (!formData.category_id) return;
 
-    await onSave(formData);
+    await onSave({
+      ...formData,
+      price: priceValue,
+    });
     onOpenChange(false);
   };
 
@@ -113,14 +154,43 @@ export const ProductDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Service description"
-              rows={2}
-            />
+            <Label htmlFor="image">Service Image</Label>
+            {imagePreview ? (
+              <div className="relative w-full h-40 border rounded-lg overflow-hidden bg-gray-50">
+                <img 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="w-full h-full object-cover"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 h-8 w-8"
+                  onClick={handleRemoveImage}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  id="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="image"
+                  className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 transition-colors bg-gray-50"
+                >
+                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-sm text-gray-600">Click to upload image</span>
+                  <span className="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB</span>
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -129,10 +199,29 @@ export const ProductDialog = ({
               id="price"
               type="number"
               min="0"
-              step="0.01"
+              step="1"
               value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-              placeholder="0.00"
+              onChange={(e) => {
+                const value = e.target.value;
+                // Only allow numbers (and empty string for backspace)
+                if (value === '' || /^\d+$/.test(value)) {
+                  setFormData({ ...formData, price: value });
+                }
+              }}
+              onKeyDown={(e) => {
+                // Prevent non-numeric keys except backspace, delete, arrow keys, tab
+                if (
+                  !/^\d$/.test(e.key) && 
+                  e.key !== 'Backspace' && 
+                  e.key !== 'Delete' && 
+                  e.key !== 'ArrowLeft' && 
+                  e.key !== 'ArrowRight' &&
+                  e.key !== 'Tab'
+                ) {
+                  e.preventDefault();
+                }
+              }}
+              placeholder="0"
               required
             />
           </div>
@@ -151,17 +240,6 @@ export const ProductDialog = ({
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Input
-              id="category"
-              value="Services"
-              disabled
-              className="bg-gray-100"
-            />
-            <input type="hidden" value="services" />
           </div>
 
           <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">

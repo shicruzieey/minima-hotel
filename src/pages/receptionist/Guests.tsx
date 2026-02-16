@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/currency";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,8 @@ const Guests = () => {
   const { isManager, verifyManagerCode } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "checked-in" | "checked-out" | "paid" | "active">("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedGuest, setSelectedGuest] = useState<GuestWithBooking | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -90,6 +93,49 @@ const Guests = () => {
     guest.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     guest.roomId.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Combine all guests and apply filters
+  const allGuests = [
+    ...activeGuests.map(g => ({ ...g, statusType: 'checked-in' as const })),
+    ...checkedOutGuests.map(g => ({ ...g, statusType: 'checked-out' as const })),
+    ...paidGuests.map(g => ({ ...g, statusType: 'paid' as const })),
+    ...activeBookings.map(g => ({ ...g, statusType: 'active' as const })),
+  ];
+
+  const allFilteredGuests = allGuests
+    .filter(guest => {
+      const matchesSearch = 
+        guest.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        guest.roomId.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || guest.statusType === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      // Sort by latest action (updatedAt or createdAt), most recent first
+      const dateA = new Date(a.updatedAt || a.createdAt).getTime();
+      const dateB = new Date(b.updatedAt || b.createdAt).getTime();
+      return dateB - dateA;
+    });
+
+  // Pagination
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(allFilteredGuests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedGuests = allFilteredGuests.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (status: typeof statusFilter) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
+  };
 
   const handleGuestClick = (guest: GuestWithBooking) => {
     setSelectedGuest(guest);
@@ -228,197 +274,240 @@ const Guests = () => {
     }
   };
 
-  const GuestCard = ({ guest, isActive }: { guest: GuestWithBooking; isActive: boolean }) => {
-    const statusBadge = getStatusBadge(guest.status);
-    
-    return (
-      <Card 
-        className="cursor-pointer hover:border-primary/50 transition-colors"
-        onClick={() => handleGuestClick(guest)}
-      >
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-medium text-sm">{guest.guestName}</h3>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <BedDouble className="w-3 h-3" />
-                  <span>Room {guest.roomId}</span>
-                </div>
-              </div>
-            </div>
-            <Badge 
-              variant="secondary"
-              className={statusBadge.className}
-            >
-              {statusBadge.label}
-            </Badge>
-          </div>
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-3 h-3" />
-              <span>{formatDate(guest.checkIn)} - {formatDate(guest.checkOut)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Phone className="w-3 h-3" />
-              <span>{guest.guestPhone || "No phone"}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
   return (
     <MainLayout title="Guests" subtitle="View guest bookings and process payments">
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by guest name or room..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
-
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Checked-In Guests - Left Side */}
-        <div>
-          <Card className="glass-card">
-            <CardHeader className="border-b">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                Checked-In Guests
-                <Badge variant="secondary" className="ml-auto">
-                  {filteredActiveGuests.length}
-                </Badge>
-              </CardTitle>
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Checked In</CardTitle>
+              <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent className="p-4">
-              {activeLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : filteredActiveGuests.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm">
-                  {searchQuery ? "No checked-in guests match your search" : "No guests currently checked in"}
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                  {filteredActiveGuests.map((guest) => (
-                    <GuestCard key={guest.bookingId} guest={guest} isActive={true} />
-                  ))}
-                </div>
-              )}
+            <CardContent>
+              <div className="text-2xl font-bold">{activeGuests.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Checked Out</CardTitle>
+              <BedDouble className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{checkedOutGuests.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Paid</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{paidGuests.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Bookings</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activeBookings.length}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Checked Out Guests - Right Side */}
-        <div>
-          <Card className="glass-card">
-            <CardHeader className="border-b">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="w-2 h-2 rounded-full bg-gray-400" />
-                Checked Out
-                <Badge variant="secondary" className="ml-auto">
-                  {filteredCheckedOutGuests.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              {checkedOutLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-4">
+              {/* Search Bar */}
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by guest name or room..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              {/* Status Filters */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Status</p>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  <Button
+                    variant={statusFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleStatusFilterChange("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={statusFilter === "checked-in" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleStatusFilterChange("checked-in")}
+                  >
+                    Checked In
+                  </Button>
+                  <Button
+                    variant={statusFilter === "checked-out" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleStatusFilterChange("checked-out")}
+                  >
+                    Checked Out
+                  </Button>
+                  <Button
+                    variant={statusFilter === "paid" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleStatusFilterChange("paid")}
+                  >
+                    Paid
+                  </Button>
+                  <Button
+                    variant={statusFilter === "active" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleStatusFilterChange("active")}
+                  >
+                    Active
+                  </Button>
                 </div>
-              ) : filteredCheckedOutGuests.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm">
-                  {searchQuery ? "No checked out guests match your search" : "No checked out guests"}
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                  {filteredCheckedOutGuests.map((guest) => (
-                    <GuestCard key={guest.bookingId} guest={guest} isActive={false} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Second Row - Paid and Active Bookings */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Paid Guests - Left Side */}
-        <div>
-          <Card className="glass-card">
-            <CardHeader className="border-b">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                Paid
-                <Badge variant="secondary" className="ml-auto">
-                  {filteredPaidGuests.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              {paidLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        {/* Guests Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Guests</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(activeLoading || checkedOutLoading || paidLoading || activeBookingsLoading) ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : allFilteredGuests.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                {searchQuery || statusFilter !== "all"
+                  ? "No guests match your filters"
+                  : "No guests found"}
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Guest Name</TableHead>
+                        <TableHead>Room</TableHead>
+                        <TableHead>Check-In</TableHead>
+                        <TableHead>Check-Out</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedGuests.map((guest) => {
+                        const statusBadge = getStatusBadge(guest.status);
+                        return (
+                          <TableRow key={guest.bookingId}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm">{guest.guestName}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1 text-sm">
+                                <BedDouble className="w-3 h-3 text-muted-foreground" />
+                                <span>{guest.roomId}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {formatDate(guest.checkIn)}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {formatDate(guest.checkOut)}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {guest.guestPhone || "N/A"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant="secondary"
+                                className={statusBadge.className}
+                              >
+                                {statusBadge.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(guest.totalPrice)}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleGuestClick(guest)}
+                              >
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
-              ) : filteredPaidGuests.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm">
-                  {searchQuery ? "No paid guests match your search" : "No paid guests"}
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                  {filteredPaidGuests.map((guest) => (
-                    <GuestCard key={guest.bookingId} guest={guest} isActive={false} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Active Bookings - Right Side */}
-        <div>
-          <Card className="glass-card">
-            <CardHeader className="border-b">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="w-2 h-2 rounded-full bg-orange-500" />
-                Active
-                <Badge variant="secondary" className="ml-auto">
-                  {filteredActiveBookings.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              {activeBookingsLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : filteredActiveBookings.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm">
-                  {searchQuery ? "No active bookings match your search" : "No active bookings"}
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                  {filteredActiveBookings.map((guest) => (
-                    <GuestCard key={guest.bookingId} guest={guest} isActive={false} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {startIndex + 1} to {Math.min(endIndex, allFilteredGuests.length)} of {allFilteredGuests.length} guests
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                          <Button
+                            key={page}
+                            variant={currentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Guest Details Dialog */}
@@ -485,14 +574,14 @@ const Guests = () => {
               <div className="grid grid-cols-3 gap-4">
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-xl font-bold">₱{selectedGuest.totalPrice.toLocaleString()}</p>
+                    <p className="text-xl font-bold">{formatCurrency(selectedGuest.totalPrice)}</p>
                     <p className="text-xs text-muted-foreground">Room Charge</p>
                   </CardContent>
                 </Card>
                 <Card className={pendingCount > 0 ? "border-orange-200 bg-orange-50" : ""}>
                   <CardContent className="p-4 text-center">
                     <p className={`text-xl font-bold ${pendingCount > 0 ? "text-orange-600" : ""}`}>
-                      ₱{pendingTotal.toLocaleString()}
+                      {formatCurrency(pendingTotal)}
                     </p>
                     <p className="text-xs text-muted-foreground">Pending ({pendingCount})</p>
                   </CardContent>
@@ -500,7 +589,7 @@ const Guests = () => {
                 <Card className="border-primary/20 bg-primary/5">
                   <CardContent className="p-4 text-center">
                     <p className="text-xl font-bold text-primary">
-                      ₱{(selectedGuest.totalPrice + totalSpent).toLocaleString()}
+                      {formatCurrency(selectedGuest.totalPrice + totalSpent)}
                     </p>
                     <p className="text-xs text-muted-foreground">Total Paid</p>
                   </CardContent>
@@ -521,7 +610,7 @@ const Guests = () => {
                       </Button>
                       {selectedTransactionIds.length > 0 && (
                         <Button size="sm" onClick={() => setIsPaymentDialogOpen(true)}>
-                          Pay Selected (₱{selectedPendingTotal.toFixed(2)})
+                          Pay Selected ({formatCurrency(selectedPendingTotal)})
                         </Button>
                       )}
                     </div>
@@ -557,7 +646,7 @@ const Guests = () => {
                             </div>
                             <div className="text-right flex items-center gap-2">
                               <div>
-                                <p className="font-medium">₱{transaction.total?.toFixed(2)}</p>
+                                <p className="font-medium">{formatCurrency(transaction.total || 0)}</p>
                                 <Badge variant="secondary" className="bg-orange-100 text-orange-700 text-xs">
                                   Pending
                                 </Badge>
@@ -607,7 +696,7 @@ const Guests = () => {
                               <p className="text-xs text-muted-foreground">{formatDateTime(transaction.created_at)}</p>
                             </div>
                             <div className="text-right">
-                              <p className="font-medium">₱{transaction.total?.toFixed(2)}</p>
+                              <p className="font-medium">{formatCurrency(transaction.total || 0)}</p>
                               <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
                                 {transaction.payment_method}
                               </Badge>
@@ -655,7 +744,7 @@ const Guests = () => {
           
           <div className="py-4">
             <div className="text-center mb-6">
-              <p className="text-3xl font-bold">₱{selectedPendingTotal.toFixed(2)}</p>
+              <p className="text-3xl font-bold">{formatCurrency(selectedPendingTotal)}</p>
               <p className="text-sm text-muted-foreground">
                 {selectedTransactionIds.length} transaction{selectedTransactionIds.length > 1 ? "s" : ""} selected
               </p>
