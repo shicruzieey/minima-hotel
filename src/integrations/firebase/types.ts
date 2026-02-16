@@ -91,19 +91,20 @@ export interface POSTransaction {
 
 export interface InventoryItem {
   id: string;
-  batchNumber: string;
+  batchNumber?: string;
   category: string;
   createdAt: string;
   currentStock: number;
   description: string;
-  expirationDate: string;
+  expirationDate?: string;
   location: string;
-  maxStock: number;
+  maxStock?: number;
   name: string;
   restockThreshold: number;
-  supplier: string;
+  supplier?: string;
   unit: string;
-  unitCost: number;
+  unitCost?: number;
+  price?: number; // For menu items
   updatedAt: string;
 }
 

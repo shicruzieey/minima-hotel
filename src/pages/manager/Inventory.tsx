@@ -214,6 +214,7 @@ const Inventory = () => {
                   <TableHead>Category</TableHead>
                   <TableHead>Current Stock</TableHead>
                   <TableHead>Min. Stock</TableHead>
+                  <TableHead>Price</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Last Updated</TableHead>
@@ -240,6 +241,9 @@ const Inventory = () => {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {item.restockThreshold} {item.unit}
+                      </TableCell>
+                      <TableCell>
+                        {item.price ? `₱${item.price.toFixed(2)}` : "-"}
                       </TableCell>
                       <TableCell>
                         <Badge 

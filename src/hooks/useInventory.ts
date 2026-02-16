@@ -32,6 +32,9 @@ export const useInventory = () => {
             description: value.description,
             createdAt: value.createdAt,
             updatedAt: value.updatedAt,
+            batchNumber: value.batchNumber,
+            expirationDate: value.expirationDate,
+            unitCost: value.unitCost,
           });
         });
       }
@@ -48,11 +51,12 @@ export const useInventory = () => {
             restockThreshold: value.restockThreshold || 0,
             maxStock: value.maxStock,
             unit: value.unit || "unit",
-            location: value.location,
+            location: value.location || "Kitchen",
             supplier: value.supplier,
-            description: value.description,
+            description: value.description || "",
             createdAt: value.createdAt,
             updatedAt: value.updatedAt,
+            price: value.price, // Include price for menu items
           });
         });
       }
