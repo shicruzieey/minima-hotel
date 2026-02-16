@@ -148,15 +148,37 @@ const ManagerDashboard = () => {
   // Bookings by status
   const bookingsByStatus = useMemo(() => {
     const statusCounts = bookings.reduce((acc, b) => {
-      const status = b.status || "unknown";
-      acc[status] = (acc[status] || 0) + 1;
+      // Normalize status to lowercase and handle variations
+      const rawStatus = (b.status || "unknown").toLowerCase().trim();
+      
+      // Map variations to standard statuses
+      let normalizedStatus = rawStatus;
+      if (rawStatus === "checked_in" || rawStatus === "checked in" || rawStatus === "checkedin") {
+        normalizedStatus = "checked-in";
+      } else if (rawStatus === "checked_out" || rawStatus === "checked out" || rawStatus === "checkedout") {
+        normalizedStatus = "checked-out";
+      } else if (rawStatus === "no_show" || rawStatus === "no show" || rawStatus === "noshow") {
+        normalizedStatus = "no-show";
+      }
+      
+      acc[normalizedStatus] = (acc[normalizedStatus] || 0) + 1;
       return acc;
     }, {} as { [key: string]: number });
 
-    return Object.entries(statusCounts).map(([status, count]) => ({
-      status: status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' '),
-      count,
-    }));
+    // Format status labels for display
+    const formatStatusLabel = (status: string): string => {
+      return status
+        .split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join('-');
+    };
+
+    return Object.entries(statusCounts)
+      .map(([status, count]) => ({
+        status: formatStatusLabel(status),
+        count,
+      }))
+      .sort((a, b) => b.count - a.count); // Sort by count descending
   }, [bookings]);
 
   const isLoading = guestsLoading || bookingsLoading || inventoryLoading || transactionsLoading;
